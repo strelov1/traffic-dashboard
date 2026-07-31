@@ -7,7 +7,9 @@ export default tseslint.config(
     // perf/ holds k6 scripts: they run in k6's own runtime, importing modules
     // that do not exist in node_modules, so type-aware linting has no project
     // to resolve them against.
-    ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**', 'perf/**'],
+    // .claude/ holds agent scratch space, including git worktrees whose copies
+    // of this repository would otherwise be linted as if they were part of it.
+    ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**', 'perf/**', '.claude/**'],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
