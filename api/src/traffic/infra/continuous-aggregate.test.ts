@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { startMigratedPostgres, type MigratedPostgres } from '../../testing/postgres.js'
 import { eventsAt, trafficEvents } from '../../testing/traffic-events.js'
+import { UNBOUNDED } from '../domain/period.js'
 import type { TrafficRepository } from '../ports.js'
 import { createTrafficRepository } from './postgres-repository.js'
 
@@ -39,7 +40,7 @@ describe('hourly totals as a continuous aggregate', () => {
   it('matches what counting the events directly would give', async () => {
     await repository.insertMany(trafficEvents(['AE', 'car', 5], ['SA', 'bus', 2]))
 
-    await expect(repository.totalsByCountry()).resolves.toEqual(await countedDirectly())
+    await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual(await countedDirectly())
   })
 
   it('still matches after the materialised part has been refreshed', async () => {
@@ -51,7 +52,7 @@ describe('hourly totals as a continuous aggregate', () => {
 
     await postgres.database.query(z.unknown(), REFRESH)
 
-    await expect(repository.totalsByCountry()).resolves.toEqual(await countedDirectly())
+    await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual(await countedDirectly())
   })
 
   it('counts a detection recorded now, even once older days are materialised', async () => {
@@ -62,9 +63,9 @@ describe('hourly totals as a continuous aggregate', () => {
     )
     await postgres.database.query(z.unknown(), REFRESH)
 
-    const before = await repository.totalsByCountry()
+    const before = await repository.totalsByCountry(UNBOUNDED)
     await repository.insertMany(trafficEvents(['AE', 'car', 1]))
-    const after = await repository.totalsByCountry()
+    const after = await repository.totalsByCountry(UNBOUNDED)
 
     expect((after[0]?.total ?? 0) - (before[0]?.total ?? 0)).toBe(1)
   })
@@ -72,7 +73,7 @@ describe('hourly totals as a continuous aggregate', () => {
   it('splits totals by vehicle type from the same aggregate', async () => {
     await repository.insertMany(trafficEvents(['AE', 'car', 4], ['SA', 'bus', 1]))
 
-    await expect(repository.totalsByVehicleType()).resolves.toEqual([
+    await expect(repository.totalsByVehicleType(UNBOUNDED)).resolves.toEqual([
       { vehicleType: 'car', total: 4 },
       { vehicleType: 'bus', total: 1 },
     ])
@@ -89,7 +90,7 @@ describe('hourly totals as a continuous aggregate', () => {
     // bound the refresh policy's trailing window exists to set.
     await repository.insertMany(eventsAt(lastWeek, ['AE', 'car', 1]))
 
-    await expect(repository.totalsByCountry()).resolves.toEqual([
+    await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual([
       { plateCountry: 'AE', total: 1 },
     ])
     await expect(repository.countEvents()).resolves.toBe(2)
@@ -104,7 +105,7 @@ describe('hourly totals as a continuous aggregate', () => {
 
     await postgres.database.query(z.unknown(), REFRESH)
 
-    await expect(repository.totalsByCountry()).resolves.toEqual([
+    await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual([
       { plateCountry: 'AE', total: 2 },
     ])
   })
@@ -118,7 +119,7 @@ describe('hourly totals as a continuous aggregate', () => {
     )
     await repository.deleteEvent(row?.id ?? '')
 
-    await expect(repository.totalsByCountry()).resolves.toEqual([])
+    await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual([])
   })
 
   // The three below are the ones that matter. The test above passes without
@@ -143,7 +144,7 @@ describe('hourly totals as a continuous aggregate', () => {
 
     await repository.deleteEvent(id)
 
-    await expect(repository.totalsByCountry()).resolves.toEqual([
+    await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual([
       { plateCountry: 'AE', total: 1 },
     ])
   })
@@ -155,7 +156,7 @@ describe('hourly totals as a continuous aggregate', () => {
     await repository.updateEvent(id, { vehicleType: 'bus' })
 
     // Equal totals tie-break on the class name, so bus precedes car.
-    await expect(repository.totalsByVehicleType()).resolves.toEqual([
+    await expect(repository.totalsByVehicleType(UNBOUNDED)).resolves.toEqual([
       { vehicleType: 'bus', total: 1 },
       { vehicleType: 'car', total: 1 },
     ])
@@ -180,7 +181,7 @@ describe('hourly totals as a continuous aggregate', () => {
 
     await repository.insertMany(trafficEvents(['SA', 'bus', 1]))
 
-    await expect(repository.totalsByCountry()).resolves.toEqual([
+    await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual([
       { plateCountry: 'SA', total: 1 },
     ])
   })
@@ -199,7 +200,7 @@ describe('hourly totals as a continuous aggregate', () => {
 
     await repository.insertMany(trafficEvents(['AE', 'car', 1]))
 
-    await expect(repository.totalsByCountry()).resolves.toEqual([
+    await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual([
       { plateCountry: 'AE', total: 2 },
     ])
   })

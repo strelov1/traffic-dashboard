@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { cloneElement, type ReactElement } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
 import type { CategoryTotal } from './api/traffic'
+import type { Filter } from './filters'
 
 vi.mock('recharts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('recharts')>()),
@@ -14,6 +15,28 @@ vi.mock('recharts', async (importOriginal) => ({
 const never = () => new Promise<CategoryTotal[]>(() => undefined)
 const resolving = (value: CategoryTotal[]) => () => Promise.resolve(value)
 const failing = (reason: string) => () => Promise.reject(new Error(reason))
+
+// The filter lives in the URL, so every test that touches it leaves one behind.
+afterEach(() => {
+  window.history.replaceState(null, '', '/')
+})
+
+// Exact labels: the by-country panel is labelled by its own heading, so a
+// loose /country/i matches the chart as well as the control.
+const periodControl = () => screen.getByLabelText('Period')
+const countryControl = () => screen.getByLabelText('Country')
+
+/** Records the filter each chart was asked for, in the order it was asked. */
+function recording(value: CategoryTotal[] = []) {
+  const filters: Filter[] = []
+  const load = (filter: Filter) => {
+    filters.push(filter)
+
+    return Promise.resolve(value)
+  }
+
+  return { filters, load }
+}
 
 describe('App', () => {
   it('titles both charts', async () => {
@@ -108,5 +131,184 @@ describe('App', () => {
 
     expect(await screen.findByText(/could not load/i)).toBeInTheDocument()
     expect(await screen.findByText('car', { selector: 'tspan' })).toBeInTheDocument()
+  })
+})
+
+describe('the period control', () => {
+  it('starts at all time and asks both aggregates for it', async () => {
+    const byCountry = recording()
+    const byVehicleType = recording()
+
+    render(<App loadByCountry={byCountry.load} loadByVehicleType={byVehicleType.load} />)
+
+    await waitFor(() => {
+      expect(byCountry.filters).toEqual([{ period: 'all' }])
+    })
+    expect(byVehicleType.filters).toEqual([{ period: 'all' }])
+    expect(periodControl()).toHaveValue('all')
+  })
+
+  it('re-reads both aggregates when the period changes', async () => {
+    const byCountry = recording()
+    const byVehicleType = recording()
+
+    render(<App loadByCountry={byCountry.load} loadByVehicleType={byVehicleType.load} />)
+    await waitFor(() => {
+      expect(byCountry.filters).toHaveLength(1)
+    })
+
+    fireEvent.change(periodControl(), { target: { value: '7d' } })
+
+    await waitFor(() => {
+      expect(byCountry.filters).toEqual([{ period: 'all' }, { period: '7d' }])
+    })
+    expect(byVehicleType.filters).toEqual([{ period: 'all' }, { period: '7d' }])
+  })
+
+  it('opens at the period the URL carries', async () => {
+    window.history.replaceState(null, '', '/?period=30d')
+    const byCountry = recording()
+
+    render(<App loadByCountry={byCountry.load} loadByVehicleType={resolving([])} />)
+
+    await waitFor(() => {
+      expect(byCountry.filters).toEqual([{ period: '30d' }])
+    })
+    expect(periodControl()).toHaveValue('30d')
+  })
+
+  it('shows the default for a period the URL asks for and the dashboard does not offer', async () => {
+    window.history.replaceState(null, '', '/?period=since-tuesday')
+    const byCountry = recording()
+
+    render(<App loadByCountry={byCountry.load} loadByVehicleType={resolving([])} />)
+
+    await waitFor(() => {
+      expect(byCountry.filters).toEqual([{ period: 'all' }])
+    })
+    expect(periodControl()).toHaveValue('all')
+  })
+
+  it('puts the chosen period in the URL, so the view is a link', async () => {
+    render(<App loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
+
+    fireEvent.change(periodControl(), { target: { value: '24h' } })
+
+    await waitFor(() => {
+      expect(window.location.search).toBe('?period=24h')
+    })
+  })
+})
+
+describe('the country control', () => {
+  const TOTALS = [
+    { label: 'AE', total: 3 },
+    { label: 'SA', total: 1 },
+  ]
+
+  it('lists the countries the country aggregate reported', async () => {
+    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+
+    await waitFor(() => {
+      expect(countryControl()).toBeInTheDocument()
+    })
+
+    expect(
+      [...countryControl().querySelectorAll('option')].map((option) => option.value),
+    ).toEqual(['', 'AE', 'SA'])
+  })
+
+  it('keeps a country the URL asked for that the data does not mention', async () => {
+    // A link shared before the period narrowed, or a country whose traffic
+    // stopped. Dropping it would leave the control disagreeing with the chart
+    // beside it, which is the one thing the URL is supposed to prevent.
+    window.history.replaceState(null, '', '/?country=QA')
+
+    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+
+    await waitFor(() => {
+      expect(countryControl()).toHaveValue('QA')
+    })
+  })
+
+  it('re-reads only the vehicle-type aggregate when the country changes', async () => {
+    // The asymmetry, end to end. A by-country chart narrowed to one country is
+    // a single bar, so it takes no country — and re-reading it would blank a
+    // loaded chart to redraw exactly the same bars.
+    const byCountry = recording(TOTALS)
+    const byVehicleType = recording()
+
+    render(<App loadByCountry={byCountry.load} loadByVehicleType={byVehicleType.load} />)
+    await waitFor(() => {
+      expect(byVehicleType.filters).toHaveLength(1)
+    })
+
+    fireEvent.change(countryControl(), { target: { value: 'AE' } })
+
+    await waitFor(() => {
+      expect(byVehicleType.filters).toEqual([{ period: 'all' }, { period: 'all', country: 'AE' }])
+    })
+    expect(byCountry.filters).toEqual([{ period: 'all' }])
+  })
+
+  it('drops back to every country', async () => {
+    window.history.replaceState(null, '', '/?country=AE')
+    const byVehicleType = recording()
+
+    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={byVehicleType.load} />)
+    await waitFor(() => {
+      expect(byVehicleType.filters).toEqual([{ period: 'all', country: 'AE' }])
+    })
+
+    fireEvent.change(countryControl(), { target: { value: '' } })
+
+    await waitFor(() => {
+      expect(byVehicleType.filters).toEqual([
+        { period: 'all', country: 'AE' },
+        { period: 'all' },
+      ])
+    })
+  })
+})
+
+describe('the headline', () => {
+  const TOTALS = [
+    { label: 'AE', total: 3 },
+    { label: 'SA', total: 1 },
+  ]
+
+  it('counts the chosen country rather than every one of them', async () => {
+    // Taken from the by-country aggregate already on hand: a further request
+    // for the same number is a second chance for the two to disagree.
+    window.history.replaceState(null, '', '/?country=SA')
+
+    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+
+    expect(await screen.findByTestId('total-events')).toHaveTextContent('1')
+  })
+
+  it('reads zero for a country with no traffic rather than the unfiltered sum', async () => {
+    window.history.replaceState(null, '', '/?country=QA')
+
+    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+
+    expect(await screen.findByTestId('total-events')).toHaveTextContent('0')
+  })
+
+  it('states the filter in effect beside the number', async () => {
+    window.history.replaceState(null, '', '/?period=7d&country=AE')
+
+    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+
+    const scope = await screen.findByTestId('headline-scope')
+
+    expect(scope).toHaveTextContent(/last 7 days/i)
+    expect(scope).toHaveTextContent('AE')
+  })
+
+  it('states the scope even when nothing is narrowed', async () => {
+    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+
+    expect(await screen.findByTestId('headline-scope')).toHaveTextContent(/all time/i)
   })
 })

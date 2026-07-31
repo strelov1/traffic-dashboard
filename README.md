@@ -55,8 +55,8 @@ testing there is the SQL.
 | Method | Path | |
 |---|---|---|
 | GET | `/api/health` | process and database reachability |
-| GET | `/api/traffic/by-country` | totals per plate country, largest first |
-| GET | `/api/traffic/by-vehicle-type` | totals per vehicle type, largest first |
+| GET | `/api/traffic/by-country` | totals per plate country, largest first; optional `from`, `to` |
+| GET | `/api/traffic/by-vehicle-type` | totals per vehicle type, largest first; optional `from`, `to`, `country` |
 | POST | `/api/traffic/events` | record a batch of detections |
 | PATCH | `/api/traffic/events/:id` | correct a detection's classification |
 | DELETE | `/api/traffic/events/:id` | remove a detection |
@@ -80,6 +80,41 @@ curl -X POST localhost:3000/api/traffic/events \
 Request schemas restate what the database enforces rather than deferring to it.
 The database is the last line of defence and cannot explain itself to a caller;
 the schema is the first, and can.
+
+### Narrowing an aggregate
+
+Both aggregates take an optional period as `from` and `to`, read as the
+half-open interval `[from, to)` so that adjacent periods tile a timeline without
+an hour falling in two of them. Either bound may be omitted, and an omitted
+bound is unbounded on that side — never a default the server picked.
+
+Bounds carry an explicit zone offset, because the request must not depend on
+whichever zone the server happens to run in. The totals are hourly, so a bound
+partway through an hour cannot be honoured: the range is **rounded outward** to
+hour boundaries in UTC before it reaches SQL, and the response says which period
+it actually covered.
+
+```bash
+curl 'localhost:3000/api/traffic/by-country?from=2026-03-04T13:30:00Z'
+# {"data":[...],"period":{"from":"2026-03-04T13:00:00.000Z"}}
+
+curl 'localhost:3000/api/traffic/by-country?from=2026-03-04T12:00:00Z&to=2026-03-04T11:00:00Z'
+# {"error":"from must not be later than to: from=2026-03-04T12:00:00Z, to=2026-03-04T11:00:00Z"}
+```
+
+Outward, never inward: the answer then covers at least what was asked for. A
+range narrowed instead would under-report, and nothing in the response would
+distinguish that from a quiet stretch of traffic.
+
+`country` narrows the **vehicle-type** aggregate only. On the by-country chart it
+would leave a single bar — a drill-down into how one country's traffic is
+composed, which is the question the vehicle-type aggregate with a country
+already answers. Sending it to `by-country` is a 400 rather than a silently
+unfiltered answer.
+
+What this costs is measured in [`docs/performance/filtered-aggregate.md`](docs/performance/filtered-aggregate.md):
+a seven-day bound is 2.5× faster than unbounded, a one-day bound 5.1×, and past
+about a day the cost is the live tail rather than the filter.
 
 ## Architecture
 
@@ -130,6 +165,23 @@ starts `web` on a bare `depends_on: [api]`, and the API migrates and may seed
 before it listens, so nginx serves the bundle while the API is still silent.
 The retry is user-initiated, with no automatic re-request and so no backoff to
 get wrong.
+
+**The filter lives in the URL, and the period is a preset rather than a date
+picker.** The URL is the state, read through `useSyncExternalStore`, rather than
+a copy of it kept in step — with a copy, pressing back changes the address and
+nothing else, and the controls end up disagreeing with the charts. Presets travel
+as `?period=7d`, not as the instants they resolve to: a link that pinned
+yesterday's instants would answer a question nobody asked when opened tomorrow.
+A value the dashboard does not offer falls back to the default rather than
+rendering an error, and the controls then show what is actually in effect.
+
+**The country narrows one chart, and the headline follows both controls.** The
+by-country chart is not narrowed by a country — reduced to one bar it answers a
+different question — so it is keyed on the period alone and holds still while the
+reader changes country. The headline is that country's entry in the by-country
+aggregate already on hand, never a further request, and the filter in effect is
+stated beside the number: a total that silently ignored the controls next to it
+would be a claim the reader has no way to check.
 
 ## Scaling: 5 → 50 → 500 RPS
 
@@ -229,7 +281,7 @@ one stops covering.
 | When | What | Why then |
 |---|---|---|
 | 500 RPS at millions of rows — p95 is 1.84 s at 4M today | **Cache the response.** `Cache-Control` first, so a proxy or CDN answers repeats without reaching the API; then an in-process TTL cache with single-flight | The response is public and identical for everyone, and a dashboard read by people tolerates seconds of staleness |
-| Filters over arbitrary date ranges | Round the range to bucket boundaries before it becomes a cache key | Arbitrary ranges make the key space unbounded and the hit rate collapses |
+| ~~Filters over arbitrary date ranges~~ — **done**, see below | Round the range to bucket boundaries before it becomes a cache key | Arbitrary ranges make the key space unbounded and the hit rate collapses |
 | ~100M rows | Coarser aggregates layered on the hourly one, and compression on old chunks | The hourly materialised side grows linearly with retention |
 | Sustained write load | Batch inserts, `COPY` over `INSERT`, a queue in front so bursts never reach the database | Writes cannot be cached. Nothing above helps them |
 | Retention becomes a cost | Drop old chunks | Partitioned already; dropping a chunk is metadata, not a scan of millions of rows |
@@ -244,12 +296,35 @@ Two things that are **not** on this list, deliberately:
   problem this system will not have for a very long time, and costs cross-shard
   aggregation immediately.
 
+### The one row that is already collected
+
+Date-range filters now exist, so the row above is worth stating precisely: the
+API rounds every requested range outward to hour boundaries **before it reaches
+SQL**, and states the rounded period in the response. A client can therefore
+produce hour-aligned keys and nothing finer, and the dashboard's presets only
+ever produce four of them. The key space was bounded by the contract rather than
+by a cache that would have had to round the same range a second time.
+
+The cache itself is still **not built**, and that is deliberate rather than
+unfinished. There is no measured need: on a million rows the unbounded read is
+19.8 ms, not the 1.84 s p95 that made caching the first row of this table. A
+cache added now would also sit exactly where the new predicate is and hide it.
+The measurement is in
+[`docs/performance/filtered-aggregate.md`](docs/performance/filtered-aggregate.md),
+including the part that contradicted the expectation: the events table was
+already being narrowed to one chunk by the continuous aggregate itself, and what
+the filter excludes is a chunk of the *aggregate's* hypertable.
+
 ### What is not measured here
 
 The load test exercises **reads**. Writes cannot be cached and were not part of
 the tiers above; the write path is a batch insert and the honest position is
 that its ceiling is unmeasured. That, and an unauthenticated write path, are the
 first two things a real deployment would need.
+
+The load test also exercises the **unbounded** read only. The filtered tiers in
+`docs/performance/filtered-aggregate.md` are plan-level measurements of the
+query, not end-to-end p95 under concurrency; the two are not interchangeable.
 
 ## Freshness, and its bound
 
