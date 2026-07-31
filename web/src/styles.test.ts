@@ -45,7 +45,9 @@ function contrast(a: string, b: string): number {
 // Every token drawn as text, against every surface it can sit on. --ink-muted is
 // the one that was wrong: it colours the h1, the Source link and the empty-state
 // copy, and at 4.31:1 it inherited the bars' 3:1 threshold rather than text's.
-const TEXT_TOKENS = ['--ink-primary', '--ink-secondary', '--ink-muted'] as const
+// --failed is here because it is only ever text: a chart's failure, and now a
+// refused detection, which is the message the form moves focus to.
+const TEXT_TOKENS = ['--ink-primary', '--ink-secondary', '--ink-muted', '--failed'] as const
 const SURFACES = ['--page', '--surface-1'] as const
 
 describe.each(['light', 'dark'] as const)('%s scheme', (name) => {
