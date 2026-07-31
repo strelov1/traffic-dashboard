@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Whether the system is running and its parts can reach each other: the API's readiness signal including database connectivity, how the web shell surfaces it, and the startup and configuration guarantees that make a single command enough to bring the stack up.
+Whether the system is running and its parts can reach each other: the API's readiness signal including database connectivity, and the startup and configuration guarantees that make a single command enough to bring the stack up.
+
+The browser-facing half of this capability was the connectivity shell, removed when the dashboard replaced it. Reachability is now visible through the dashboard's own per-chart states, specified in `traffic-dashboard`.
 
 This capability carries no traffic-domain behaviour. It exists so that a failure anywhere else can be told apart from the plumbing being down.
 ## Requirements
@@ -49,30 +51,6 @@ The API SHALL apply pending migrations at startup and SHALL NOT accept requests 
 
 - **WHEN** a migration raises an error that is not a connection failure
 - **THEN** the process exits non-zero and does not serve requests
-
-### Requirement: Web shell surfaces API reachability
-
-The web application SHALL request the API's health on load and render a distinct state for each outcome: in flight, reachable, and not reachable. The not-reachable state MUST distinguish a degraded API — one that answered `503` — from an API that could not be reached at all, since the two point at different faults.
-
-#### Scenario: API healthy
-
-- **WHEN** the health request resolves with `status: "ok"`
-- **THEN** the shell renders its connected state
-
-#### Scenario: API degraded
-
-- **WHEN** the health request resolves with `status: "degraded"`
-- **THEN** the shell renders a disconnected state identifying the database as the unreachable part
-
-#### Scenario: API unreachable
-
-- **WHEN** the health request rejects because the API cannot be reached
-- **THEN** the shell renders a disconnected state identifying the API as the unreachable part
-
-#### Scenario: Request in flight
-
-- **WHEN** the health request has been issued and has not settled
-- **THEN** the shell renders a loading state rather than either terminal state
 
 ### Requirement: Browser may call the API across the origin boundary
 
