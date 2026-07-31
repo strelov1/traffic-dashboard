@@ -13,9 +13,9 @@
 
 ## 3. Database access and migrations
 
-- [ ] 3.1 Add the `pg` connection pool and a query helper, covered by an integration test against a Testcontainers Postgres
-- [ ] 3.2 Add the migration runner with an empty initial migration, applied at startup before the server accepts requests
-- [ ] 3.3 Retry startup while the database refuses connections, and exit non-zero when a migration fails for any other reason
+- [x] 3.1 Add the `pg` connection pool and a query helper, covered by an integration test against a Testcontainers Postgres
+- [x] 3.2 Add the migration runner over an empty `api/migrations/`, applied at startup before the server accepts requests
+- [x] 3.3 Retry startup while the database refuses connections, and exit non-zero when a migration fails for any other reason
 
 ## 4. Health endpoint
 

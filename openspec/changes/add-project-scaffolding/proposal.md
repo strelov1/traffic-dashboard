@@ -28,7 +28,7 @@ None. This is the first change in the repository.
 
 ## Impact
 
-- **New code:** `api/`, `web/`, `migrations/`, `docker-compose.yml`, workspace root config.
+- **New code:** `api/` (including `api/migrations/`, since the API is what owns and applies the schema), `web/`, `docker-compose.yml`, workspace root config.
 - **Dependencies:** Node.js, TypeScript, Fastify, a Postgres driver, a migration runner, React, Vite, Vitest, Testcontainers.
 - **Runtime:** Docker Compose becomes the supported way to run the project; `DATABASE_URL` becomes the API's required configuration.
 - **Downstream:** The response envelope and error shape established by `/api/health` bind every later endpoint. Choosing them here, against a trivial payload, is cheaper than discovering them wrong once charts depend on them.
