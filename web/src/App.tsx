@@ -1,40 +1,40 @@
-import { useEffect, useState } from 'react'
-
-import type { HealthOutcome } from './api/health'
+import type { CategoryTotal } from './api/traffic'
+import { TotalsChart } from './components/TotalsChart'
+import { useAsync } from './useAsync'
 
 type Props = {
-  checkHealth: () => Promise<HealthOutcome>
+  loadByCountry: () => Promise<CategoryTotal[]>
+  loadByVehicleType: () => Promise<CategoryTotal[]>
 }
 
-const MESSAGES: Record<HealthOutcome['kind'], string> = {
-  ok: 'Connected — API and database are reachable',
-  degraded: 'API is reachable, but it cannot reach the database',
-  unreachable: 'The API could not be reached',
-}
+export function App({ loadByCountry, loadByVehicleType }: Props) {
+  const byCountry = useAsync(loadByCountry)
+  const byVehicleType = useAsync(loadByVehicleType)
 
-export function App({ checkHealth }: Props) {
-  const [outcome, setOutcome] = useState<HealthOutcome | undefined>(undefined)
-
-  useEffect(() => {
-    let current = true
-
-    void checkHealth().then((result) => {
-      // Guards against a state update after the effect has been torn down,
-      // which React's strict mode double-invocation makes routine.
-      if (current) {
-        setOutcome(result)
-      }
-    })
-
-    return () => {
-      current = false
-    }
-  }, [checkHealth])
+  // Summed from an aggregate already on hand rather than fetched: one more
+  // endpoint for a number the page can add up itself would be one more thing
+  // to keep consistent.
+  const total =
+    byCountry.status === 'loaded'
+      ? byCountry.value.reduce((running, entry) => running + entry.total, 0)
+      : undefined
 
   return (
-    <main>
-      <h1>DERQ Traffic</h1>
-      <p role="status">{outcome ? MESSAGES[outcome.kind] : 'Checking connection…'}</p>
-    </main>
+    <div className="page">
+      <header className="page__header">
+        <h1>Traffic</h1>
+        <p className="headline">
+          <span className="headline__value" data-testid="total-events">
+            {total === undefined ? '—' : total.toLocaleString('en')}
+          </span>
+          <span className="headline__label">vehicles detected</span>
+        </p>
+      </header>
+
+      <main className="grid">
+        <TotalsChart title="By plate country" state={byCountry} />
+        <TotalsChart title="By vehicle type" state={byVehicleType} />
+      </main>
+    </div>
   )
 }

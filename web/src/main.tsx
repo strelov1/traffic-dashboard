@@ -2,8 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { App } from './App'
-import { fetchHealth } from './api/health'
+import { fetchTotalsByCountry, fetchTotalsByVehicleType } from './api/traffic'
 import { API_ORIGIN } from './config'
+import './styles.css'
 
 const container = document.getElementById('root')
 
@@ -12,11 +13,12 @@ if (!container) {
 }
 
 // Defined once rather than inline, so the identity stays stable across renders
-// and the effect that depends on it does not re-run.
-const checkHealth = () => fetchHealth(API_ORIGIN)
+// and the effects that depend on them do not re-run.
+const loadByCountry = () => fetchTotalsByCountry(API_ORIGIN)
+const loadByVehicleType = () => fetchTotalsByVehicleType(API_ORIGIN)
 
 createRoot(container).render(
   <StrictMode>
-    <App checkHealth={checkHealth} />
+    <App loadByCountry={loadByCountry} loadByVehicleType={loadByVehicleType} />
   </StrictMode>,
 )

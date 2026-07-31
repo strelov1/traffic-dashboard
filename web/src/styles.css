@@ -1,0 +1,111 @@
+/* Each scheme's values are chosen and checked against its own surface. Flipping
+   a light-mode colour into dark reliably produces one that glows or vanishes. */
+:root {
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --surface-hover: #f0efec;
+  --border: #e4e3df;
+  --ink-primary: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #78766f;
+  --series-1: #2a78d6;
+  --failed: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --surface-hover: #262624;
+    --border: #383835;
+    --ink-primary: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #8f8e85;
+    --series-1: #3987e5;
+    --failed: #e66767;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink-primary);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.page {
+  margin: 0 auto;
+  max-width: 1120px;
+  padding: 32px 20px 64px;
+}
+
+.page__header h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 4px 0 32px;
+}
+
+.headline__value {
+  font-size: 48px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.headline__label {
+  color: var(--ink-secondary);
+}
+
+.grid {
+  display: grid;
+  gap: 20px;
+  /* Stacks on its own once a column can no longer hold a readable bar, so no
+     breakpoint has to be guessed at. */
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.panel {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.panel h2 {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.panel__note {
+  margin: 0;
+  padding: 24px 0;
+  color: var(--ink-muted);
+}
+
+.panel__note--failed {
+  color: var(--failed);
+}
+
+.recharts-wrapper:focus-visible,
+.recharts-rectangle:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+}

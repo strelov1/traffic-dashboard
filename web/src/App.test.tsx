@@ -1,53 +1,68 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cloneElement, type ReactElement } from 'react'
+import { describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
-import type { HealthOutcome } from './api/health'
+import type { CategoryTotal } from './api/traffic'
 
-function resolving(outcome: HealthOutcome) {
-  return () => Promise.resolve(outcome)
-}
+vi.mock('recharts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('recharts')>()),
+  ResponsiveContainer: ({ children }: { children: ReactElement<{ width?: number; height?: number }> }) =>
+    cloneElement(children, { width: 640, height: 320 }),
+}))
+
+const never = () => new Promise<CategoryTotal[]>(() => undefined)
+const resolving = (value: CategoryTotal[]) => () => Promise.resolve(value)
+const failing = (reason: string) => () => Promise.reject(new Error(reason))
 
 describe('App', () => {
-  it('reports that the check is in flight before it settles', () => {
-    render(<App checkHealth={() => new Promise<HealthOutcome>(() => undefined)} />)
+  it('titles both charts', async () => {
+    render(<App loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
 
-    expect(screen.getByRole('status')).toHaveTextContent(/checking/i)
+    expect(await screen.findByRole('heading', { name: /country/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /vehicle type/i })).toBeInTheDocument()
   })
 
-  it('reports a connected system once the check succeeds', async () => {
-    render(<App checkHealth={resolving({ kind: 'ok' })} />)
+  it('leads with the total number of recorded events', async () => {
+    render(
+      <App
+        loadByCountry={resolving([
+          { label: 'AE', total: 3 },
+          { label: 'SA', total: 1 },
+        ])}
+        loadByVehicleType={resolving([])}
+      />,
+    )
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/connected/i)
+    expect(await screen.findByTestId('total-events')).toHaveTextContent('4')
   })
 
-  it('names the database when the API reports itself degraded', async () => {
-    render(<App checkHealth={resolving({ kind: 'degraded' })} />)
+  it('holds the total back until the aggregate it is derived from arrives', () => {
+    render(<App loadByCountry={never} loadByVehicleType={resolving([])} />)
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/database/i)
+    expect(screen.getByTestId('total-events')).toHaveTextContent('—')
   })
 
-  it('names the API when it cannot be reached at all', async () => {
-    render(<App checkHealth={resolving({ kind: 'unreachable' })} />)
+  it('renders one chart while the other is still loading', async () => {
+    render(
+      <App
+        loadByCountry={never}
+        loadByVehicleType={resolving([{ label: 'car', total: 7 }])}
+      />,
+    )
 
-    const status = await screen.findByRole('status')
-
-    expect(status).toHaveTextContent(/api/i)
-    expect(status).not.toHaveTextContent(/database/i)
+    expect(await screen.findByText('car', { selector: 'tspan' })).toBeInTheDocument()
   })
 
-  it('checks once rather than on every render', async () => {
-    let calls = 0
-    const checkHealth = () => {
-      calls += 1
+  it('reports a failed chart without disturbing the one that loaded', async () => {
+    render(
+      <App
+        loadByCountry={failing('answered 500')}
+        loadByVehicleType={resolving([{ label: 'car', total: 7 }])}
+      />,
+    )
 
-      return Promise.resolve<HealthOutcome>({ kind: 'ok' })
-    }
-
-    const { rerender } = render(<App checkHealth={checkHealth} />)
-    await screen.findByRole('status')
-    rerender(<App checkHealth={checkHealth} />)
-
-    expect(calls).toBe(1)
+    expect(await screen.findByText(/could not load/i)).toBeInTheDocument()
+    expect(await screen.findByText('car', { selector: 'tspan' })).toBeInTheDocument()
   })
 })
