@@ -12,14 +12,14 @@
 
 ## 3. Retry
 
-- [ ] 3.1 RED: a failed chart offers a retry, and using it loads the data.
-- [ ] 3.2 RED: while a retry is in flight the chart reports loading.
-- [ ] 3.3 Give `useAsync` a `reload` via an attempt counter in the dependency list; render the control in the failed branch of `TotalsChart`.
-- [ ] 3.4 GREEN. Confirm the headline follows, since it is derived from the by-country state.
+- [x] 3.1 RED: a failed chart offers a retry, and using it loads the data.
+- [x] 3.2 RED: while a retry is in flight the chart reports loading.
+- [x] 3.3 Give `useAsync` a `reload` via an attempt counter in the dependency list; render the control in the failed branch of `TotalsChart`.
+- [x] 3.4 GREEN. Confirm the headline follows, since it is derived from the by-country state.
 
 ## 4. Verify
 
-- [ ] 4.1 `pnpm verify`.
+- [x] 4.1 `pnpm verify`.
 - [ ] 4.2 In a real browser: stop the API, load the page, start the API, retry — both charts recover without a reload.
 - [ ] 4.3 Screenshot at 320px and at 1440px, light and dark.
 - [ ] 4.4 `simplify`, then re-run the suite.
