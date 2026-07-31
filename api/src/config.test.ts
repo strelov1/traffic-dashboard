@@ -41,6 +41,29 @@ describe('loadConfig', () => {
     expect(config.webOrigin).toBe('http://localhost:5173')
   })
 
+  it('falls back to a seed size that starts quickly', () => {
+    const config = loadConfig({ DATABASE_URL })
+
+    expect(config.seedEvents).toBe(250_000)
+  })
+
+  it('reads SEED_EVENTS when set', () => {
+    const config = loadConfig({ DATABASE_URL, SEED_EVENTS: '2000000' })
+
+    expect(config.seedEvents).toBe(2_000_000)
+  })
+
+  it('accepts a seed size of zero, meaning do not generate data', () => {
+    const config = loadConfig({ DATABASE_URL, SEED_EVENTS: '0' })
+
+    expect(config.seedEvents).toBe(0)
+  })
+
+  it('names SEED_EVENTS when it is not a whole number of events', () => {
+    expect(() => loadConfig({ DATABASE_URL, SEED_EVENTS: '-1' })).toThrow(/SEED_EVENTS/)
+    expect(() => loadConfig({ DATABASE_URL, SEED_EVENTS: 'lots' })).toThrow(/SEED_EVENTS/)
+  })
+
   it('reads WEB_ORIGIN when set', () => {
     const config = loadConfig({ DATABASE_URL, WEB_ORIGIN: 'http://web:4173' })
 

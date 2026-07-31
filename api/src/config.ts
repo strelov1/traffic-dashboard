@@ -2,12 +2,16 @@ export type Config = {
   databaseUrl: string
   port: number
   webOrigin: string
+  seedEvents: number
 }
 
 type Environment = Record<string, string | undefined>
 
 const DEFAULT_PORT = 3000
 const DEFAULT_WEB_ORIGIN = 'http://localhost:5173'
+// Small enough that a first `docker compose up` finishes in seconds. The volume
+// the query-plan measurements need is asked for explicitly.
+const DEFAULT_SEED_EVENTS = 250_000
 
 /** Throws rather than exiting, so the entrypoint owns the exit code and this stays testable. */
 export function loadConfig(env: Environment): Config {
@@ -15,6 +19,7 @@ export function loadConfig(env: Environment): Config {
     databaseUrl: readRequired(env, 'DATABASE_URL'),
     port: readPort(env),
     webOrigin: readOptional(env, 'WEB_ORIGIN') ?? DEFAULT_WEB_ORIGIN,
+    seedEvents: readCount(env, 'SEED_EVENTS', DEFAULT_SEED_EVENTS),
   }
 }
 
@@ -48,4 +53,20 @@ function readPort(env: Environment): number {
   }
 
   return port
+}
+
+function readCount(env: Environment, name: string, fallback: number): number {
+  const raw = readOptional(env, name)
+
+  if (raw === undefined) {
+    return fallback
+  }
+
+  const count = Number(raw)
+
+  if (!Number.isInteger(count) || count < 0) {
+    throw new Error(`${name} must be a whole number of events, but was "${raw}"`)
+  }
+
+  return count
 }

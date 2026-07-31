@@ -62,10 +62,19 @@ describe('migrateToLatest', () => {
     await expect(migrateToLatest({ databaseUrl, directory: empty })).resolves.toBeUndefined()
   })
 
+  // Its own container: the shared one has fixture migrations recorded in
+  // pgmigrations, and the runner refuses an unrun migration that sorts before
+  // one already applied.
   it("applies the project's own migrations directory", async () => {
-    await expect(
-      migrateToLatest({ databaseUrl, directory: MIGRATIONS_DIRECTORY }),
-    ).resolves.toBeUndefined()
+    const own = await new PostgreSqlContainer('postgres:17-alpine').start()
+
+    try {
+      await expect(
+        migrateToLatest({ databaseUrl: own.getConnectionUri(), directory: MIGRATIONS_DIRECTORY }),
+      ).resolves.toBeUndefined()
+    } finally {
+      await own.stop()
+    }
   })
 
   it('keeps retrying an unreachable database until the window closes', async () => {
