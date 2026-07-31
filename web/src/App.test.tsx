@@ -23,6 +23,17 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: /vehicle type/i })).toBeInTheDocument()
   })
 
+  it('links to the source, opened without handing the opener over', () => {
+    render(<App loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
+
+    const link = screen.getByRole('link', { name: /source/i })
+
+    expect(link).toHaveAttribute('href', 'https://github.com/strelov1/traffic-dashboard')
+    // rel=noreferrer with target=_blank: without it the opened page gets a
+    // handle on this one through window.opener.
+    expect(link).toHaveAttribute('rel', 'noreferrer')
+  })
+
   it('leads with the total number of recorded events', async () => {
     render(
       <App

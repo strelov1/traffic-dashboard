@@ -22,7 +22,17 @@ export function App({ loadByCountry, loadByVehicleType }: Props) {
   return (
     <div className="page">
       <header className="page__header">
-        <h1>Traffic</h1>
+        <div className="page__title">
+          <h1>Traffic</h1>
+          <a
+            className="source"
+            href="https://github.com/strelov1/traffic-dashboard"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Source
+          </a>
+        </div>
         <p className="headline">
           <span className="headline__value" data-testid="total-events">
             {total === undefined ? '—' : total.toLocaleString('en')}

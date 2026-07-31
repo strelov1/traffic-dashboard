@@ -54,6 +54,27 @@ body {
   color: var(--ink-muted);
 }
 
+.page__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.source {
+  font-size: 13px;
+  color: var(--ink-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1px;
+}
+
+.source:hover,
+.source:focus-visible {
+  color: var(--ink-primary);
+  border-bottom-color: var(--ink-primary);
+}
+
 .headline {
   display: flex;
   align-items: baseline;
