@@ -12,3 +12,14 @@ coverage/
 
 *.log
 .DS_Store
+
+# Terraform. State holds every generated secret in plaintext — random_password
+# among them — and tfvars holds the API token. Neither belongs in a repository,
+# least of all a public one.
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+!terraform/*.tfvars.example
+terraform/.terraform.lock.hcl
+crash.log
