@@ -3,9 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildServer } from './server.js'
 import { stubDatabase } from './testing/stub-database.js'
 
+const WEB_ORIGIN = 'http://localhost:5173'
+
 describe('GET /api/health', () => {
   describe('when the database is reachable', () => {
-    const server = buildServer(stubDatabase(() => true), { logger: false })
+    const server = buildServer({ database: stubDatabase(() => true), webOrigin: WEB_ORIGIN }, { logger: false })
 
     beforeAll(() => server.ready())
     afterAll(() => server.close())
@@ -24,7 +26,7 @@ describe('GET /api/health', () => {
   })
 
   describe('when the database is unreachable', () => {
-    const server = buildServer(stubDatabase(() => false), { logger: false })
+    const server = buildServer({ database: stubDatabase(() => false), webOrigin: WEB_ORIGIN }, { logger: false })
 
     beforeAll(() => server.ready())
     afterAll(() => server.close())
@@ -44,10 +46,7 @@ describe('GET /api/health', () => {
 
   describe('when the database becomes unreachable between requests', () => {
     let reachable = true
-    const server = buildServer(
-      stubDatabase(() => reachable),
-      { logger: false },
-    )
+    const server = buildServer({ database: stubDatabase(() => reachable), webOrigin: WEB_ORIGIN }, { logger: false })
 
     beforeAll(() => server.ready())
     afterAll(() => server.close())

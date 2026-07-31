@@ -31,6 +31,6 @@
 
 ## 6. Cross-origin access and containerisation
 
-- [ ] 6.1 Configure CORS explicitly in the API for the web origin, covered by a test asserting the response headers
-- [ ] 6.2 Write `docker-compose.yml` for Postgres, API, and web, with the API gated on a Postgres health check
-- [ ] 6.3 Add `.env.example` listing every variable the API requires, and verify a clean checkout reaches `"database": "up"` with one command
+- [x] 6.1 Configure CORS explicitly in the API for the web origin, covered by a test asserting the response headers
+- [x] 6.2 Write `docker-compose.yml` for Postgres, API, and web, with the API gated on a Postgres health check
+- [x] 6.3 Add `.env.example` listing every variable the API requires, and verify a clean checkout reaches `"database": "up"` with one command

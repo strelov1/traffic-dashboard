@@ -21,7 +21,7 @@ describe('GET /api/health against Postgres', () => {
   })
 
   it('reports the database as up', async () => {
-    const server = buildServer(database, { logger: false })
+    const server = buildServer({ database, webOrigin: 'http://localhost:5173' }, { logger: false })
     await server.ready()
 
     const response = await server.inject({ method: 'GET', url: '/api/health' })
@@ -35,7 +35,7 @@ describe('GET /api/health against Postgres', () => {
   it('reports the database as down once it has stopped', async () => {
     await container.stop()
 
-    const server = buildServer(database, { logger: false })
+    const server = buildServer({ database, webOrigin: 'http://localhost:5173' }, { logger: false })
     await server.ready()
 
     const response = await server.inject({ method: 'GET', url: '/api/health' })

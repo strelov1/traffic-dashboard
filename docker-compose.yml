@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-derq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-derq}
+      POSTGRES_DB: ${POSTGRES_DB:-derq}
+    # Deliberately not published: the API reaches it over the compose network,
+    # and binding 5432 fails on any machine already running Postgres. Use
+    # `docker compose exec db psql -U derq derq` for a shell.
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready against the real user and database: the server accepts TCP
+      # connections well before it will answer a query.
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-derq} -d ${POSTGRES_DB:-derq}']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-derq}:${POSTGRES_PASSWORD:-derq}@db:5432/${POSTGRES_DB:-derq}
+      PORT: '3000'
+      # Where the browser loads the frontend from, which is the host port below.
+      WEB_ORIGIN: http://localhost:${WEB_PORT:-8080}
+    ports:
+      - '${API_PORT:-3000}:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        # The browser runs on the host, so it reaches the API through the
+        # published port, not through the compose network name.
+        VITE_API_ORIGIN: http://localhost:${API_PORT:-3000}
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    depends_on:
+      - api
+
+volumes:
+  db-data:

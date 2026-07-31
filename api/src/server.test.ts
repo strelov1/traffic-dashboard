@@ -9,7 +9,10 @@ const DRIVER_FAILURE =
   'connection to server at "db" (172.18.0.2), port 5432 failed: password authentication failed for user "derq"'
 
 describe('error rendering', () => {
-  const server = buildServer(stubDatabase(), { logger: false })
+  const server = buildServer(
+    { database: stubDatabase(), webOrigin: 'http://localhost:5173' },
+    { logger: false },
+  )
 
   beforeAll(async () => {
     server.get('/boom', () => {
