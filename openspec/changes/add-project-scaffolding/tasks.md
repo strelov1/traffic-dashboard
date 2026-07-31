@@ -25,9 +25,9 @@
 
 ## 5. Web shell
 
-- [ ] 5.1 Scaffold the `web` package with React, Vite, and TypeScript, rendering a shell
-- [ ] 5.2 Add the health client and render the in-flight state while the request has not settled
-- [ ] 5.3 Render the connected state for `status: "ok"`, and disconnected states that name the database for `503` and the API for a failed request
+- [x] 5.1 Scaffold the `web` package with React, Vite, and TypeScript, rendering a shell
+- [x] 5.2 Add the health client and render the in-flight state while the request has not settled
+- [x] 5.3 Render the connected state for `status: "ok"`, and disconnected states that name the database for `503` and the API for a failed request
 
 ## 6. Cross-origin access and containerisation
 
