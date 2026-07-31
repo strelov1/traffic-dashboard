@@ -43,7 +43,7 @@ pnpm --filter @derq/web dev
 ### Verify
 
 ```bash
-pnpm verify        # lint, typecheck, then tests — 142 of them
+pnpm verify        # lint, typecheck, then tests — 144 of them
 ```
 
 Integration suites start a throwaway TimescaleDB with Testcontainers, so Docker
