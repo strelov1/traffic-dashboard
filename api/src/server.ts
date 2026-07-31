@@ -4,12 +4,17 @@ import Fastify, {
   type FastifyServerOptions,
 } from 'fastify'
 
+import type { Database } from './db.js'
+import { registerHealthRoute } from './health.js'
+
 export type ServerOptions = {
   logger?: FastifyServerOptions['logger']
 }
 
-export function buildServer(options: ServerOptions = {}): FastifyInstance {
+export function buildServer(database: Database, options: ServerOptions = {}): FastifyInstance {
   const server = Fastify({ logger: options.logger ?? true })
+
+  registerHealthRoute(server, database)
 
   server.setNotFoundHandler((request, reply) => {
     void reply.code(404).send({ error: `Route ${request.method} ${request.url} not found` })

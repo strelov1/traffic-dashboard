@@ -19,9 +19,9 @@
 
 ## 4. Health endpoint
 
-- [ ] 4.1 Serve `GET /api/health` as `200 {"data": {"status": "ok", "database": "up"}}` when a query succeeds
-- [ ] 4.2 Serve `503 {"data": {"status": "degraded", "database": "down"}}` when the database is unreachable
-- [ ] 4.3 Re-check connectivity on every request, proven by a test where the database becomes unreachable between two calls
+- [x] 4.1 Serve `GET /api/health` as `200 {"data": {"status": "ok", "database": "up"}}` when a query succeeds
+- [x] 4.2 Serve `503 {"data": {"status": "degraded", "database": "down"}}` when the database is unreachable
+- [x] 4.3 Re-check connectivity on every request, proven by a test where the database becomes unreachable between two calls
 
 ## 5. Web shell
 

@@ -1,4 +1,5 @@
 import { loadConfig } from './config.js'
+import { createDatabase } from './db.js'
 import { migrateToLatest, MIGRATIONS_DIRECTORY } from './migrate.js'
 import { buildServer } from './server.js'
 
@@ -8,7 +9,7 @@ async function main(): Promise<void> {
   // Before listen, so no request is ever served against an unmigrated schema.
   await migrateToLatest({ databaseUrl: config.databaseUrl, directory: MIGRATIONS_DIRECTORY })
 
-  const server = buildServer()
+  const server = buildServer(createDatabase(config.databaseUrl))
 
   // Not the default loopback: the port has to be reachable from outside the container.
   await server.listen({ port: config.port, host: '0.0.0.0' })
