@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+
+# Local agent tooling. The OpenSpec artifacts under openspec/ are tracked;
+# the generated commands and skills under .claude/ are not.
+.claude/
+
+# Local configuration; .env.example is the tracked template.
+.env
+.env.local
+
+*.log
+.DS_Store
