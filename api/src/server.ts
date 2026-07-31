@@ -7,6 +7,8 @@ import Fastify, {
 
 import type { Database } from './db.js'
 import { registerHealthRoute } from './health.js'
+import { createTrafficRepository } from './traffic/repository.js'
+import { registerTrafficRoutes } from './traffic/routes.js'
 
 export type ServerDependencies = {
   database: Database
@@ -28,6 +30,10 @@ export function buildServer(
   void server.register(cors, { origin: dependencies.webOrigin })
 
   registerHealthRoute(server, dependencies.database)
+  // Derived rather than injected: the repository is fully determined by the
+  // database, and a second parameter for it would be one more thing to pass
+  // and to get wrong. Route suites exercise it directly with a stub.
+  registerTrafficRoutes(server, createTrafficRepository(dependencies.database))
 
   server.setNotFoundHandler((request, reply) => {
     void reply.code(404).send({ error: `Route ${request.method} ${request.url} not found` })

@@ -1,0 +1,48 @@
+import type { FastifyInstance } from 'fastify'
+
+import type { TrafficRepository } from './repository.js'
+
+// Declared to Fastify rather than only asserted in tests: it serialises from
+// the schema, so a column added to the table cannot reach a response body.
+function envelopeOf(category: string) {
+  return {
+    response: {
+      200: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['data'],
+        properties: {
+          data: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: [category, 'total'],
+              properties: {
+                [category]: { type: 'string' },
+                total: { type: 'integer' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }
+}
+
+export function registerTrafficRoutes(
+  server: FastifyInstance,
+  repository: TrafficRepository,
+): void {
+  server.get(
+    '/api/traffic/by-country',
+    { schema: envelopeOf('plateCountry') },
+    async () => ({ data: await repository.totalsByCountry() }),
+  )
+
+  server.get(
+    '/api/traffic/by-vehicle-type',
+    { schema: envelopeOf('vehicleType') },
+    async () => ({ data: await repository.totalsByVehicleType() }),
+  )
+}
