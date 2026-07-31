@@ -7,7 +7,11 @@
   --border: #e4e3df;
   --ink-primary: #0b0b0b;
   --ink-secondary: #52514e;
-  --ink-muted: #78766f;
+  /* 4.91:1 on --page, 5.04:1 on --surface-1. It colours the h1, the Source
+     link and the empty-state copy, so it is text and owes 4.5:1 — the 3:1
+     threshold belongs to the bars, which carry none. styles.test.ts recomputes
+     both ratios from this file. */
+  --ink-muted: #6f6d66;
   --series-1: #2a78d6;
   --failed: #d03b3b;
 }
@@ -97,8 +101,11 @@ body {
   display: grid;
   gap: 20px;
   /* Stacks on its own once a column can no longer hold a readable bar, so no
-     breakpoint has to be guessed at. */
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+     breakpoint has to be guessed at. `min(320px, 100%)` because a bare 320px
+     minimum is a floor rather than a preference: the track would keep its width
+     on a narrower viewport and the page would scroll sideways, which the
+     dashboard spec forbids at a phone width. */
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
 }
 
 .panel {
