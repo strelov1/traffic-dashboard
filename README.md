@@ -266,11 +266,18 @@ Two tools, one boundary between them: Terraform describes the machine,
 nothing is written down twice.
 
 ```
-terraform/            hcloud server, firewall, ssh key, cloud-init
-docker-compose.yml    the application
+terraform/               hcloud server, firewall, ssh key, cloud-init
+docker-compose.yml       the application
 docker-compose.prod.yml  adds Caddy, which obtains and renews its own certificate
-deploy/host-deploy.sh the only command the deploy key may run
+deploy/host-deploy.sh    the only command the deploy key may run
+deploy/shared-host/      nginx, certificate and key setup for a host already in use
 ```
+
+Two ways onto a machine. `terraform/` provisions a dedicated one, where Caddy
+handles TLS and nothing else is needed. `deploy/shared-host/bootstrap.sh`
+prepares a host that already runs nginx for something else — which is where the
+live demo runs, so the script exists rather than that setup living only on that
+server.
 
 ### Provisioning
 
