@@ -3,6 +3,10 @@
 Vehicle detections stored at their raw grain, aggregated by TimescaleDB, served
 over HTTP, and drawn as two ranked charts.
 
+**Live: <https://traffic.freehire.me>** — 250 000 seeded detections, behind
+nginx on a single host. The frontend and the API share that one origin, so the
+browser never makes a cross-origin request.
+
 ```
 Browser ──► web (nginx, static bundle)
    │
