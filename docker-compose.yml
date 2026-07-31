@@ -25,8 +25,9 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-derq}:${POSTGRES_PASSWORD:-derq}@db:5432/${POSTGRES_DB:-derq}
       PORT: '3000'
-      # Where the browser loads the frontend from, which is the host port below.
-      WEB_ORIGIN: http://localhost:${WEB_PORT:-8080}
+      # Where the browser loads the frontend from. Behind a reverse proxy the
+      # frontend and the API share one origin, so PUBLIC_ORIGIN sets both.
+      WEB_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:${WEB_PORT:-8080}}
     ports:
       - '${API_PORT:-3000}:3000'
     depends_on:
@@ -40,7 +41,7 @@ services:
       args:
         # The browser runs on the host, so it reaches the API through the
         # published port, not through the compose network name.
-        VITE_API_ORIGIN: http://localhost:${API_PORT:-3000}
+        VITE_API_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:${API_PORT:-3000}}
     ports:
       - '${WEB_PORT:-8080}:80'
     depends_on:
