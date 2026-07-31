@@ -2,6 +2,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testconta
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createDatabase, type Database } from './db.js'
+import { POSTGRES_IMAGE } from './testing/postgres.js'
 import { buildServer } from './server.js'
 
 // Drives the real pool through the real route, so a wiring mistake that every
@@ -11,7 +12,7 @@ describe('GET /api/health against Postgres', () => {
   let database: Database
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgres:17-alpine').start()
+    container = await new PostgreSqlContainer(POSTGRES_IMAGE).start()
     database = createDatabase(container.getConnectionUri())
   })
 

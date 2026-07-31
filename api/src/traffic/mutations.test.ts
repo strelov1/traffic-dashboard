@@ -2,10 +2,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { startMigratedPostgres, type MigratedPostgres } from '../testing/postgres.js'
-import { trafficEvents } from '../testing/traffic-events.js'
+import { eventsAt, trafficEvents } from '../testing/traffic-events.js'
 import { createTrafficRepository, type TrafficRepository } from './repository.js'
 
 const UNKNOWN_ID = '999999'
+
+// Stated rather than taken from the clock: this suite asserts that a correction
+// leaves the instant alone, so it has to know what the instant was.
+const RECORDED_AT = new Date('2026-07-01T08:15:00Z')
 
 describe('traffic mutations', () => {
   let postgres: MigratedPostgres
@@ -23,7 +27,7 @@ describe('traffic mutations', () => {
   })
 
   async function recordOne(): Promise<string> {
-    await repository.insertMany(trafficEvents(['AE', 'car', 1]))
+    await repository.insertMany(eventsAt(RECORDED_AT, ['AE', 'car', 1]))
 
     const [row] = await postgres.database.query(
       z.object({ id: z.string() }),
@@ -45,7 +49,7 @@ describe('traffic mutations', () => {
 
       expect(updated).toEqual({
         id,
-        occurredAt: new Date('2026-07-01T08:15:00Z'),
+        occurredAt: RECORDED_AT,
         plateCountry: 'SA',
         vehicleType: 'car',
       })

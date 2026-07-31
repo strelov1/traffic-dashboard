@@ -47,18 +47,21 @@ const vehicleTypeTotal = z.object({
   total: z.coerce.number().int().nonnegative(),
 })
 
+// Read from the maintained hourly totals rather than the events: the cost is the
+// number of buckets times the number of categories, not the size of the table.
+//
 // The tie-break is part of the contract: without it, equal totals may swap
 // between requests and a chart reorders for no reason the reader can see.
 const TOTALS_BY_COUNTRY = `
-  select plate_country as "plateCountry", count(*) as total
-  from traffic_events
+  select plate_country as "plateCountry", sum(total)::bigint as total
+  from traffic_hourly_totals
   group by plate_country
   order by total desc, plate_country asc
 `
 
 const TOTALS_BY_VEHICLE_TYPE = `
-  select vehicle_type as "vehicleType", count(*) as total
-  from traffic_events
+  select vehicle_type as "vehicleType", sum(total)::bigint as total
+  from traffic_hourly_totals
   group by vehicle_type
   order by total desc, vehicle_type asc
 `

@@ -143,6 +143,18 @@ describe('traffic ingest', () => {
       expect(response.statusCode).toBe(400)
     })
 
+    it('refuses to rewrite the instant rather than attempting a move', async () => {
+      const id = await recordOne()
+
+      const response = await server.inject({
+        method: 'PATCH',
+        url: `/api/traffic/events/${id}`,
+        payload: { occurredAt: '2026-01-02T03:04:05.000Z' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
     it('answers 404 for an id that does not exist', async () => {
       const response = await server.inject({
         method: 'PATCH',

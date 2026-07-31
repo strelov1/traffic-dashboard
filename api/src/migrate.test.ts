@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { createDatabase, type Database } from './db.js'
+import { POSTGRES_IMAGE } from './testing/postgres.js'
 import { migrateToLatest, MIGRATIONS_DIRECTORY } from './migrate.js'
 
 const PROBE_MIGRATIONS = fileURLToPath(new URL('./__fixtures__/migrations-probe', import.meta.url))
@@ -23,7 +24,7 @@ describe('migrateToLatest', () => {
   let databaseUrl: string
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgres:17-alpine').start()
+    container = await new PostgreSqlContainer(POSTGRES_IMAGE).start()
     databaseUrl = container.getConnectionUri()
     database = createDatabase(databaseUrl)
   })
@@ -66,7 +67,7 @@ describe('migrateToLatest', () => {
   // pgmigrations, and the runner refuses an unrun migration that sorts before
   // one already applied.
   it("applies the project's own migrations directory", async () => {
-    const own = await new PostgreSqlContainer('postgres:17-alpine').start()
+    const own = await new PostgreSqlContainer(POSTGRES_IMAGE).start()
 
     try {
       await expect(

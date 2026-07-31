@@ -39,13 +39,20 @@ const idParams = {
   properties: { id: { type: 'string', pattern: '^[0-9]{1,18}$' } },
 } as const
 
+// The instant is absent on purpose. Events are stored partitioned by time and
+// the storage will not move a row between partitions, so accepting it would
+// mean answering 500 from a chunk's own constraint. A correction fixes what the
+// camera read, not when it looked.
 const correctionBody = {
   type: 'object',
   additionalProperties: false,
   // An empty body is a mistake, not a no-op: a caller who sent nothing meant
   // something, and should learn it did not arrive.
   minProperties: 1,
-  properties: detectionFields,
+  properties: {
+    plateCountry: detectionFields.plateCountry,
+    vehicleType: detectionFields.vehicleType,
+  },
 } as const
 
 const recordedResponse = {
@@ -70,6 +77,8 @@ type Detection = {
   occurredAt?: string
 }
 
+type Correction = Partial<Pick<Detection, 'plateCountry' | 'vehicleType'>>
+
 export function registerIngestRoutes(
   server: FastifyInstance,
   repository: TrafficRepository,
@@ -84,7 +93,7 @@ export function registerIngestRoutes(
     },
   )
 
-  server.patch<{ Params: { id: string }; Body: Partial<Detection> }>(
+  server.patch<{ Params: { id: string }; Body: Correction }>(
     '/api/traffic/events/:id',
     { schema: { params: idParams, body: correctionBody } },
     async (request, reply) => {
@@ -127,9 +136,8 @@ function toEvent(detection: Detection): TrafficEvent {
   }
 }
 
-function toChange(body: Partial<Detection>): Partial<TrafficEvent> {
+function toChange(body: Correction): Partial<TrafficEvent> {
   return {
-    ...(body.occurredAt === undefined ? {} : { occurredAt: new Date(body.occurredAt) }),
     ...(body.plateCountry === undefined ? {} : { plateCountry: body.plateCountry }),
     ...(body.vehicleType === undefined ? {} : { vehicleType: body.vehicleType }),
   }
