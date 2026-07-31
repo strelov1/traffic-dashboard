@@ -1,5 +1,5 @@
-import type { TrafficEvent } from '../traffic/repository.js'
-import type { VehicleType } from '../traffic/vehicle-types.js'
+import type { TrafficEvent } from '../traffic/domain/detection.js'
+import type { VehicleType } from '../traffic/domain/vehicle-type.js'
 
 type Spec = [plateCountry: string, vehicleType: VehicleType, count: number]
 

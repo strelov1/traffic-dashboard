@@ -28,6 +28,9 @@ services:
       # Where the browser loads the frontend from. Behind a reverse proxy the
       # frontend and the API share one origin, so PUBLIC_ORIGIN sets both.
       WEB_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:${WEB_PORT:-8080}}
+      # Compose reads .env for interpolation, not for injection, so a variable
+      # the service does not name never reaches the process.
+      SEED_EVENTS: ${SEED_EVENTS:-}
     ports:
       - '${API_PORT:-3000}:3000'
     depends_on:

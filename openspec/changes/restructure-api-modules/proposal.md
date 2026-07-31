@@ -11,8 +11,8 @@ Nothing here changes behaviour. The point is that the next change — which does
 ## What Changes
 
 - `api/src/traffic` gains three directories with one direction of dependency: `domain` knows nothing, `infra` and `http` both know `domain` and the port, and neither knows the other.
-- `ports.ts` declares `TrafficRepository` as an interface. Today the interface is inferred from the concrete Postgres implementation, so `http` depends on `infra` through a type alias. After this, `infra` implements a contract that `http` states.
-- The domain types move out of `repository.ts` into `domain/`: `vehicle-type.ts`, `detection.ts`, `category-total.ts`. `repository.ts` becomes `infra/postgres-repository.ts` and keeps only SQL and row validation.
+- `ports.ts` takes over `TrafficRepository`. The contract is already a declared type, so nothing about it changes — but it currently sits in the same module as the SQL, which puts every statement in the transport layer's import graph. Afterwards `http` names the port and never the adapter.
+- The domain types move out of `repository.ts` into `domain/`: `vehicle-type.ts`, `detection.ts` (`TrafficEvent` and `StoredTrafficEvent`), `totals.ts` (`CountryTotal` and `VehicleTypeTotal`). `repository.ts` becomes `infra/postgres-repository.ts` and keeps only SQL and row validation.
 - `toEvent` moves out of `ingest-routes.ts` into `domain/detection.ts`, unchanged. The invariant it is missing is named in design.md as a seam and left for the next change, so this one stays a pure move.
 - The files that are not about traffic — `config.ts`, `db.ts`, `migrate.ts`, `server.ts`, `health.ts` — move to `platform/`. They are the things a second feature would reuse verbatim, and calling that out is cheaper than discovering it when a second feature arrives.
 - `index.ts` stays the composition root and is the only file that names both `platform` and `traffic`.
