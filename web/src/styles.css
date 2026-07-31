@@ -82,8 +82,11 @@ body {
 .headline {
   display: flex;
   align-items: baseline;
+  /* Wraps rather than overflows: the scope grows with the filter, and at a
+     phone width the number and its label have to keep the line they need. */
+  flex-wrap: wrap;
   gap: 10px;
-  margin: 4px 0 32px;
+  margin: 4px 0 20px;
 }
 
 .headline__value {
@@ -95,6 +98,49 @@ body {
 
 .headline__label {
   color: var(--ink-secondary);
+}
+
+/* Set apart from the label, because it is a different kind of statement: the
+   label says what is counted, the scope says over what. */
+.headline__scope {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink-secondary);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 32px;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control__label {
+  font-size: 13px;
+  color: var(--ink-secondary);
+}
+
+.control__input {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--ink-primary);
+  font: inherit;
+  font-size: 14px;
+}
+
+.control__input:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 1px;
 }
 
 .grid {

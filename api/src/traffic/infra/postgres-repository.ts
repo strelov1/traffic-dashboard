@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { Database } from '../../platform/database.js'
+import type { Period } from '../domain/period.js'
 import { VEHICLE_TYPES } from '../domain/vehicle-type.js'
 import type { TrafficRepository } from '../ports.js'
 
@@ -25,24 +26,57 @@ const vehicleTypeTotal = z.object({
   total: z.coerce.number().int().nonnegative(),
 })
 
-// Read from the maintained hourly totals rather than the events: the cost is the
-// number of buckets times the number of categories, not the size of the table.
-//
-// The tie-break is part of the contract: without it, equal totals may swap
-// between requests and a chart reorders for no reason the reader can see.
-const TOTALS_BY_COUNTRY = `
-  select plate_country as "plateCountry", sum(total)::bigint as total
-  from traffic_hourly_totals
-  group by plate_country
-  order by total desc, plate_country asc
-`
+/**
+ * Read from the maintained hourly totals rather than the events: the cost is the
+ * number of buckets times the number of categories, not the size of the table.
+ *
+ * The tie-break is part of the contract: without it, equal totals may swap
+ * between requests and a chart reorders for no reason the reader can see.
+ *
+ * The filter is composed rather than written once as `($1::timestamptz is null
+ * or hour >= $1)`. That form is a single static string and reads better, and it
+ * gives up the thing this predicate exists for: a clause whose truth depends on
+ * whether a parameter is null cannot exclude a chunk, so the bounded read would
+ * scan every one of them and discard the rows. Composing keeps `$n` throughout —
+ * no value is ever interpolated into the statement.
+ *
+ * `hour >= from` and `hour < to`: half-open, matching how `time_bucket` assigns
+ * an instant to a bucket, so adjacent periods tile without an hour landing in
+ * both. Bounds arrive already on bucket boundaries; see `toPeriod`.
+ */
+function totalsQuery(
+  column: string,
+  alias: string,
+  period: Period,
+  plateCountry?: string,
+): { text: string; values: unknown[] } {
+  const values: unknown[] = []
+  const where: string[] = []
+  const bind = (value: unknown): string => `$${String(values.push(value))}`
 
-const TOTALS_BY_VEHICLE_TYPE = `
-  select vehicle_type as "vehicleType", sum(total)::bigint as total
-  from traffic_hourly_totals
-  group by vehicle_type
-  order by total desc, vehicle_type asc
-`
+  if (period.from !== undefined) {
+    where.push(`hour >= ${bind(period.from)}::timestamptz`)
+  }
+
+  if (period.to !== undefined) {
+    where.push(`hour < ${bind(period.to)}::timestamptz`)
+  }
+
+  if (plateCountry !== undefined) {
+    where.push(`plate_country = ${bind(plateCountry)}`)
+  }
+
+  return {
+    text: `
+      select ${column} as "${alias}", sum(total)::bigint as total
+      from traffic_hourly_totals
+      ${where.length === 0 ? '' : `where ${where.join(' and ')}`}
+      group by ${column}
+      order by total desc, ${column} asc
+    `,
+    values,
+  }
+}
 
 const storedEvent = z.object({
   id: z.string(),
@@ -206,8 +240,16 @@ export function createTrafficRepository(
       return true
     },
 
-    totalsByCountry: () => database.query(countryTotal, TOTALS_BY_COUNTRY),
+    totalsByCountry: (period) => {
+      const { text, values } = totalsQuery('plate_country', 'plateCountry', period)
 
-    totalsByVehicleType: () => database.query(vehicleTypeTotal, TOTALS_BY_VEHICLE_TYPE),
+      return database.query(countryTotal, text, values)
+    },
+
+    totalsByVehicleType: (period, plateCountry) => {
+      const { text, values } = totalsQuery('vehicle_type', 'vehicleType', period, plateCountry)
+
+      return database.query(vehicleTypeTotal, text, values)
+    },
   }
 }

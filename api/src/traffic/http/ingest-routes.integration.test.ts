@@ -57,7 +57,10 @@ describe('traffic ingest', () => {
 
       const totals = await server.inject({ method: 'GET', url: '/api/traffic/by-country' })
 
-      expect(totals.json()).toEqual({
+      // Matched rather than equalled: what the envelope carries besides the
+      // data is the aggregate routes' contract, and asserting it here would
+      // make every ingest test a second copy of it.
+      expect(totals.json()).toMatchObject({
         data: [
           { plateCountry: 'AE', total: 1 },
           { plateCountry: 'SA', total: 1 },
@@ -200,7 +203,7 @@ describe('traffic ingest', () => {
       await server.inject({ method: 'DELETE', url: `/api/traffic/events/${id}` })
       const totals = await server.inject({ method: 'GET', url: '/api/traffic/by-country' })
 
-      expect(totals.json()).toEqual({ data: [] })
+      expect(totals.json()).toMatchObject({ data: [] })
     })
 
     it('answers 404 for an id that does not exist', async () => {
