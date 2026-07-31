@@ -14,6 +14,12 @@ const VEHICLE_TYPE_POOL = ['car', 'car', 'car', 'car', 'car', 'car', 'van', 'van
 
 const SEED_DAYS = 30
 
+// The refresh policy only ever materialises its trailing window, so history
+// written in bulk is invisible to the aggregate until it is backfilled once.
+// Without this the dashboard showed the last seven days of a thirty-day seed
+// and reported a quarter of the traffic, with no error anywhere.
+const BACKFILL = `call refresh_continuous_aggregate('traffic_hourly_totals', null, now() - interval '1 hour')`
+
 const GENERATE = `
   insert into traffic_events (occurred_at, plate_country, vehicle_type)
   select
@@ -43,6 +49,8 @@ export async function seedTrafficEvents(
     PLATE_COUNTRY_POOL,
     VEHICLE_TYPE_POOL,
   ])
+
+  await database.query(z.unknown(), BACKFILL)
 
   return repository.countEvents()
 }

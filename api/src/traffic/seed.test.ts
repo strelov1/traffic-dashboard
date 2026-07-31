@@ -78,6 +78,29 @@ describe('seedTrafficEvents', () => {
     expect(rows[0]?.days).toBeGreaterThan(1)
   })
 
+  it('makes every seeded event visible through the aggregate, not just recent ones', async () => {
+    await seedTrafficEvents(postgres.database, repository, { events: 5_000 })
+
+    // What the refresh policy does: materialise its trailing window and move the
+    // watermark to the present. Anything older is then neither materialised nor
+    // served live, so it vanishes from every total unless the seed backfilled it.
+    await postgres.database.query(
+      z.unknown(),
+      `call refresh_continuous_aggregate('traffic_hourly_totals',
+         now() - interval '7 days', now() - interval '1 hour')`,
+    )
+
+    const [row] = await postgres.database.query(
+      z.object({ counted: z.coerce.number() }),
+      'select coalesce(sum(total), 0) as counted from traffic_hourly_totals',
+    )
+
+    // The seed spreads events over a month; the refresh policy only maintains
+    // a trailing window, so without a backfill the older weeks are in the table
+    // and absent from every total.
+    expect(row?.counted).toBe(5_000)
+  })
+
   it('writes only events the constraints accept', async () => {
     await seedTrafficEvents(postgres.database, repository, { events: 1_000 })
 
