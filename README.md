@@ -123,6 +123,14 @@ palette check outright, unable to hold both a legible lightness spread and
 contrast against the surface. Light and dark are each chosen and validated
 against their own surface rather than inverted.
 
+**Each panel owns its state, and its own retry.** A failed request blanks one
+chart, never the page, and the panel that failed offers the retry — one control
+for both would undo that. It is reachable on an ordinary first visit: Compose
+starts `web` on a bare `depends_on: [api]`, and the API migrates and may seed
+before it listens, so nginx serves the bundle while the API is still silent.
+The retry is user-initiated, with no automatic re-request and so no backoff to
+get wrong.
+
 ## Scaling: 5 → 50 → 500 RPS
 
 Everything below is measured on this machine with `k6`, not estimated.

@@ -132,6 +132,36 @@ body {
   color: var(--failed);
 }
 
+/* Wraps rather than shrinking the button: the reason is a message from the API
+   and can run long, and the retry is the one thing here that must stay usable. */
+.panel__failure {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.panel__retry {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--ink-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.panel__retry:hover {
+  background: var(--surface-hover);
+}
+
+.panel__retry:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+}
+
 .recharts-wrapper:focus-visible,
 .recharts-rectangle:focus-visible {
   outline: 2px solid var(--series-1);
