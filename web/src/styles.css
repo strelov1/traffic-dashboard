@@ -187,7 +187,50 @@ body {
   gap: 12px;
 }
 
-.panel__retry {
+.form {
+  margin-top: 20px;
+}
+
+.form__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Wide enough for a country name, because a country name is exactly what the
+   reader is allowed to type and have the API refuse. */
+.control__input--text {
+  width: 14ch;
+}
+
+.form__message {
+  margin: 16px 0 0;
+  min-height: 1.5em;
+  color: var(--ink-secondary);
+}
+
+.form__message--failed {
+  color: var(--failed);
+}
+
+/* Focus lands here on a refusal, so it has to be visible when it was reached by
+   keyboard. :focus-visible rather than :focus: a reader who clicked Record is
+   already looking at the message and has not asked for a ring. */
+.form__message:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 4px;
+}
+
+.form__note {
+  margin: 8px 0 0;
+  max-width: 62ch;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.panel__retry,
+.form__submit {
   flex: none;
   padding: 6px 12px;
   border: 1px solid var(--border);
@@ -199,11 +242,13 @@ body {
   cursor: pointer;
 }
 
-.panel__retry:hover {
+.panel__retry:hover,
+.form__submit:hover {
   background: var(--surface-hover);
 }
 
-.panel__retry:focus-visible {
+.panel__retry:focus-visible,
+.form__submit:focus-visible {
   outline: 2px solid var(--series-1);
   outline-offset: 2px;
 }

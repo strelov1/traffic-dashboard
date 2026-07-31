@@ -1,4 +1,5 @@
-import type { CategoryTotal } from './api/traffic'
+import type { CategoryTotal, Detection } from './api/traffic'
+import { DetectionForm } from './components/DetectionForm'
 import { FilterControls } from './components/FilterControls'
 import { TotalsChart } from './components/TotalsChart'
 import { countryChartKey, PERIOD_LABELS, vehicleTypeChartKey, type Filter } from './filters'
@@ -8,9 +9,10 @@ import { useUrlFilter } from './useUrlFilter'
 type Props = {
   loadByCountry: (filter: Filter) => Promise<CategoryTotal[]>
   loadByVehicleType: (filter: Filter) => Promise<CategoryTotal[]>
+  record: (detection: Detection) => Promise<void>
 }
 
-export function App({ loadByCountry, loadByVehicleType }: Props) {
+export function App({ loadByCountry, loadByVehicleType, record }: Props) {
   const [filter, select] = useUrlFilter()
 
   // Each chart is keyed by what its own request depends on. The country chart
@@ -54,9 +56,27 @@ export function App({ loadByCountry, loadByVehicleType }: Props) {
         />
       </header>
 
-      <main className="grid">
-        <TotalsChart title="By plate country" state={byCountry} onRetry={reloadByCountry} />
-        <TotalsChart title="By vehicle type" state={byVehicleType} onRetry={reloadByVehicleType} />
+      <main>
+        <div className="grid">
+          <TotalsChart title="By plate country" state={byCountry} onRetry={reloadByCountry} />
+          <TotalsChart title="By vehicle type" state={byVehicleType} onRetry={reloadByVehicleType} />
+        </div>
+
+        {/* Below the grid rather than in it: the grid is auto-fit, so a third
+            child would resolve to three tracks and shrink both charts at the
+            width where they read best.
+
+            Both charts re-read on a success, through the reload each already
+            has. The recorded detection is counted by the next read — the
+            current hour is served live — so the number moves, which is the only
+            thing this control demonstrates that `curl` does not. */}
+        <DetectionForm
+          record={record}
+          onRecorded={() => {
+            reloadByCountry()
+            reloadByVehicleType()
+          }}
+        />
       </main>
     </div>
   )

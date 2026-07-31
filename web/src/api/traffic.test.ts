@@ -1,6 +1,15 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
-import { fetchTotalsByCountry, fetchTotalsByVehicleType } from './traffic'
+import {
+  DetectionRejected,
+  fetchTotalsByCountry,
+  fetchTotalsByVehicleType,
+  recordDetection,
+  VEHICLE_TYPES,
+} from './traffic'
 
 /** Every aggregate response carries the period it covered, so every stub does. */
 function respondWith(body: unknown, status = 200): typeof fetch {
@@ -147,5 +156,106 @@ describe('fetchTotalsByVehicleType', () => {
     await fetchTotalsByVehicleType('http://api:3000', { from: '2026-03-04T13:00:00.000Z' }, fetchImpl)
 
     expect(seen[0]).not.toContain('country')
+  })
+})
+
+describe('recordDetection', () => {
+  const DETECTION = { plateCountry: 'AE', vehicleType: 'bus' } as const
+  const RECORDED = { data: { recorded: 1 } }
+
+  /** Records the request as well as the URL: this one carries a body. */
+  function recordingRequests(body: unknown = RECORDED, status = 201) {
+    const seen: { url: string; init: RequestInit | undefined }[] = []
+    const fetchImpl: typeof fetch = (input, init) => {
+      seen.push({ url: input instanceof Request ? input.url : input.toString(), init })
+
+      return respondWith(body, status)(input)
+    }
+
+    return { seen, fetchImpl }
+  }
+
+  /** `undefined` for a body that was never a JSON string, which is a failure. */
+  const sent = (init: RequestInit | undefined): unknown =>
+    typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined
+
+  it('posts one detection to the ingest endpoint as a batch of one', async () => {
+    const { seen, fetchImpl } = recordingRequests()
+
+    await recordDetection('http://api:3000', DETECTION, fetchImpl)
+
+    const [request] = seen
+
+    expect(request?.url).toBe('http://api:3000/api/traffic/events')
+    expect(request?.init?.method).toBe('POST')
+    expect(sent(request?.init)).toEqual({ events: [DETECTION] })
+  })
+
+  it('sends no instant, so the detection lands in the hour served live', async () => {
+    const { seen, fetchImpl } = recordingRequests()
+
+    await recordDetection('http://api:3000', DETECTION, fetchImpl)
+
+    expect(sent(seen[0]?.init)).not.toHaveProperty('events.0.occurredAt')
+  })
+
+  it('rejects a success the API did not answer in the shape it declares', async () => {
+    // A 201 whose body is not the recorded envelope would otherwise be reported
+    // to the reader as a detection that was stored.
+    const { fetchImpl } = recordingRequests({ data: {} })
+
+    await expect(recordDetection('http://api', DETECTION, fetchImpl)).rejects.toThrow()
+  })
+
+  it('carries the API refusal back word for word', async () => {
+    const message = 'body/events/0/plateCountry must match pattern "^[A-Z]{2}$"'
+    const { fetchImpl } = recordingRequests({ error: message }, 400)
+
+    await expect(recordDetection('http://api', DETECTION, fetchImpl)).rejects.toThrow(message)
+  })
+
+  it('names a refusal as one, so the form can mark the field the API refused', async () => {
+    const { fetchImpl } = recordingRequests({ error: 'body/events/0/vehicleType ...' }, 400)
+
+    await expect(recordDetection('http://api', DETECTION, fetchImpl)).rejects.toBeInstanceOf(
+      DetectionRejected,
+    )
+  })
+
+  it('does not call a server failure a refusal of the value', async () => {
+    // A 500 answers `{"error":"Internal Server Error"}` — a message, but not one
+    // about what the reader typed. Marking their country invalid for it would
+    // be a guess presented as a fact.
+    const { fetchImpl } = recordingRequests({ error: 'Internal Server Error' }, 500)
+
+    await expect(recordDetection('http://api', DETECTION, fetchImpl)).rejects.not.toBeInstanceOf(
+      DetectionRejected,
+    )
+  })
+})
+
+describe('VEHICLE_TYPES', () => {
+  /**
+   * Read from the API's own module rather than from a copy of its values, the
+   * way `styles.test.ts` reads the stylesheet it asserts about. The web package
+   * cannot import server code, so this is what keeps the control the reader
+   * sees and the set the API accepts from drifting apart — and it fails at the
+   * moment a class is added, which is when the fix is one line.
+   */
+  const DOMAIN_MODULE = resolve(process.cwd(), '../api/src/traffic/domain/vehicle-type.ts')
+
+  function vehicleTypesTheApiAccepts(): string[] {
+    const source = readFileSync(DOMAIN_MODULE, 'utf8')
+    const declaration = /VEHICLE_TYPES = \[([^\]]*)\]/.exec(source)?.[1]
+
+    if (declaration === undefined) {
+      throw new Error(`${DOMAIN_MODULE} no longer declares VEHICLE_TYPES as a literal array`)
+    }
+
+    return [...declaration.matchAll(/'([^']+)'/g)].map(([, type]) => type ?? '')
+  }
+
+  it('offers exactly the classes the API accepts', () => {
+    expect([...VEHICLE_TYPES]).toEqual(vehicleTypesTheApiAccepts())
   })
 })
