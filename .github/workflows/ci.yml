@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: lint, typecheck, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the Dockerfile's base image. engines declares a range, and a
+          # range would let CI drift onto a runtime the image never sees.
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Integration suites start a throwaway TimescaleDB through Testcontainers,
+      # which needs the Docker daemon the runner already provides. Pulled ahead
+      # of time so the first suite is not billed for it and does not time out.
+      - run: docker pull timescale/timescaledb:2.29.0-pg17
+
+      - run: pnpm verify
+
+  images:
+    name: docker build
+    runs-on: ubuntu-latest
+    # Only after the code is known good: a green image over failing tests says
+    # nothing worth the minutes.
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      # Builds both images through Compose, so a Dockerfile that drifts from the
+      # workspace layout fails here rather than on a reviewer's machine.
+      - run: docker compose build
