@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { createDatabase, type Database } from './db.js'
 import { migrateToLatest, MIGRATIONS_DIRECTORY } from './migrate.js'
@@ -35,7 +36,8 @@ describe('migrateToLatest', () => {
   it('applies pending migrations', async () => {
     await migrateToLatest({ databaseUrl, directory: PROBE_MIGRATIONS })
 
-    const rows = await database.query<{ exists: boolean }>(
+    const rows = await database.query(
+      z.object({ exists: z.boolean() }),
       "select to_regclass('public.probe') is not null as exists",
     )
 
@@ -46,7 +48,8 @@ describe('migrateToLatest', () => {
     await migrateToLatest({ databaseUrl, directory: PROBE_MIGRATIONS })
     await migrateToLatest({ databaseUrl, directory: PROBE_MIGRATIONS })
 
-    const rows = await database.query<{ applied: string }>(
+    const rows = await database.query(
+      z.object({ applied: z.string() }),
       'select count(*)::text as applied from pgmigrations',
     )
 

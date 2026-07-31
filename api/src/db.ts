@@ -1,7 +1,8 @@
 import pg from 'pg'
+import { z } from 'zod'
 
 export type Database = {
-  query: <T extends pg.QueryResultRow>(sql: string, params?: unknown[]) => Promise<T[]>
+  query: <T>(shape: z.ZodType<T>, sql: string, params?: unknown[]) => Promise<T[]>
   isReachable: () => Promise<boolean>
   close: () => Promise<void>
 }
@@ -16,10 +17,18 @@ export function createDatabase(databaseUrl: string): Database {
   pool.on('error', () => undefined)
 
   return {
-    query: async <T extends pg.QueryResultRow>(sql: string, params?: unknown[]) => {
-      const result = await pool.query<T>(sql, params)
+    // The shape is a parameter rather than a type argument so that rows are
+    // checked at runtime. A generic here would only be an assertion, and a
+    // renamed column would reach the caller as undefined.
+    query: async <T>(shape: z.ZodType<T>, sql: string, params?: unknown[]) => {
+      const result = await pool.query(sql, params)
+      const rows = z.array(shape).safeParse(result.rows)
 
-      return result.rows
+      if (!rows.success) {
+        throw new Error(`query returned rows of an unexpected shape: ${describe(rows.error)}`)
+      }
+
+      return rows.data
     },
 
     isReachable: async () => {
@@ -34,4 +43,10 @@ export function createDatabase(databaseUrl: string): Database {
 
     close: () => pool.end(),
   }
+}
+
+function describe(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join('.') || '<row>'}: ${issue.message}`)
+    .join('; ')
 }

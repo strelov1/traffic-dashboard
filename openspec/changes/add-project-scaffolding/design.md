@@ -30,7 +30,9 @@ The work is assessed by a reviewer who reads the code once. That favours a small
 
 **An empty initial migration, run on API startup.** The runner is the part that fails in unfamiliar ways — ordering, connection timing, a container that is up before Postgres accepts connections. Proving it while it carries nothing means that when the `traffic_events` migration arrives, a failure is unambiguously about the schema.
 
-**Postgres reached with `pg` and plain SQL, no ORM.** Consistent with the non-goal above and with what the project is assessed on.
+**Postgres reached with `pg` and plain SQL, no ORM.** Consistent with the non-goal above and with what the project is assessed on. Drizzle was weighed and set aside: its payoff scales with the size of the schema, and this one is a single table read by two aggregates, while its cost — a generated migration pipeline, a second way to express queries, and a DSL between the reviewer and the `GROUP BY` — is fixed.
+
+**Row shapes are validated at runtime with Zod, passed as an argument rather than a type parameter.** Declining an ORM gives up the guarantee that a query's result matches the type the caller claims: `query<{ total: number }>(...)` is an assertion TypeScript never checks, so a renamed column reaches the caller as `undefined` with everything still compiling. Making the shape a required argument means an unvalidated query cannot be written at all, which is the property that a merely-available validator never has. The check costs one parse per query against result sets that are already bounded by aggregation.
 
 **Integration tests against real Postgres via Testcontainers; no mocked database.** The health check's whole purpose is to report on a real connection, so a mocked driver would assert that the code calls a function and prove nothing. Testcontainers starts a throwaway Postgres per run, requiring Docker — already a prerequisite for running the project at all.
 
