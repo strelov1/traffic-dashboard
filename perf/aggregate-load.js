@@ -7,7 +7,11 @@ import { check } from 'k6'
 // own request rate down as the system slows, so a saturated service looks
 // merely slow instead of overloaded. Arrival rate keeps issuing on schedule,
 // which is how real traffic behaves.
-const TARGET = __ENV.TARGET ?? 'http://localhost:3399/api/traffic/by-country'
+// The port Compose publishes by default, so the command in the README runs as
+// written. Override with TARGET= when API_PORT was changed — that variable also
+// accepts host-scoped forms like 127.0.0.1:3390, so it cannot be interpolated
+// into a URL here.
+const TARGET = __ENV.TARGET ?? 'http://localhost:3000/api/traffic/by-country'
 const RATE = Number(__ENV.RATE ?? 5)
 
 export const options = {

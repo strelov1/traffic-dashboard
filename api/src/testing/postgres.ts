@@ -1,8 +1,8 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import { z } from 'zod'
 
-import { createDatabase, type Database } from '../db.js'
-import { migrateToLatest, MIGRATIONS_DIRECTORY } from '../migrate.js'
+import { createDatabase, type Database } from '../platform/database.js'
+import { migrateToLatest, MIGRATIONS_DIRECTORY } from '../platform/migrate.js'
 
 // TimescaleDB is a Postgres extension, so the container behaves like Postgres;
 // pointing the suites at the image the project ships keeps them honest.

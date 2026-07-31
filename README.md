@@ -43,7 +43,7 @@ pnpm --filter @derq/web dev
 ### Verify
 
 ```bash
-pnpm verify        # lint, typecheck, then tests — 144 of them
+pnpm verify        # lint, typecheck, then tests — 164 of them
 ```
 
 Integration suites start a throwaway TimescaleDB with Testcontainers, so Docker
@@ -251,13 +251,33 @@ and is served live.
 A detection that arrives **late** — buffered by a camera, delivered minutes or
 hours after it happened — is counted when the refresh policy next covers its
 hour. The policy re-materialises a trailing seven days every five minutes, so
-seven days is the stated maximum lateness the system tolerates. Later than that
-and it stays in `traffic_events`, uncounted, until a refresh is requested for
-that period.
+seven days is the stated maximum lateness the system tolerates for an
+**arrival**. Later than that and it stays in `traffic_events`, uncounted, until
+a refresh is requested for that period.
 
-This is a real way to be wrong quietly: the number is simply lower than the
-truth, with no error anywhere. Two tests pin the boundary, so changing the
-bucket width or the offset fails a suite rather than a report.
+This is a real way to be wrong quietly: the number is lower than the truth, with
+no error anywhere. Tests pin the boundary and the policy's own arguments, so
+changing the bucket width or an offset fails a suite rather than a report.
+
+**A correction or a removal has no such bound**, and it is worth being precise
+about why the two differ. Real-time aggregation only ever *adds* rows newer than
+the watermark; it cannot subtract a deleted detection or re-classify a corrected
+one. Below the watermark the materialised value is the whole answer, so a
+mutation there would have gone unnoticed forever — and in the opposite direction:
+the total would read **higher** than the truth, not lower.
+
+So a mutation refreshes the hour it touched, unless that hour is the current one.
+The exception is not an optimisation: materialising the current bucket would move
+the watermark past detections recorded into that same hour afterwards, counted
+then by neither side. Deciding on "is this the current bucket" rather than on the
+policy's seven days also keeps that number in the migration that declares it.
+
+The cost is one refresh over a single hour per correction, on a path a human
+drives. The seam: `refresh_continuous_aggregate` cannot run inside a transaction,
+so it follows the committed mutation — a crash between the two leaves the total
+stale, which the policy repairs if the hour is inside its window and does not if
+it is outside. The mutation's own answer stands either way; a 500 for a write
+that succeeded would be the worse lie.
 
 ## Deployment
 
@@ -316,7 +336,7 @@ is not committed.
 
 ## Tests
 
-142, across three levels.
+164, across three levels.
 
 - **Unit** — configuration, error rendering, the health route against a stub.
 - **Integration** — everything touching SQL, against a real TimescaleDB started
