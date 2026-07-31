@@ -10,7 +10,12 @@ variable "public_domain" {
 }
 
 variable "ssh_public_key" {
-  description = "Public key authorised on the server. The matching private key is what the deploy workflow uses."
+  description = "Administrator public key, authorised without restriction."
+  type        = string
+}
+
+variable "deploy_public_key" {
+  description = "Public half of the key the deploy workflow uses. Installed as a forced command, so it can run the deploy and nothing else."
   type        = string
 }
 
@@ -21,9 +26,9 @@ variable "repository_url" {
 }
 
 variable "server_type" {
-  description = "Hetzner server type. cx22 is two shared cores and 4 GB, which the load test shows carries the brief's top tier with room."
+  description = "Hetzner server type. cpx21 is three shared cores and 4 GB: the load test shows two cores carry the brief's top tier, and the memory is for building the images on the box. Verified against a live account — the cx line is not offered on every one, so check `hcloud server-type list` before changing this."
   type        = string
-  default     = "cx22"
+  default     = "cpx21"
 }
 
 variable "location" {

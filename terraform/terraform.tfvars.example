@@ -2,4 +2,5 @@
 # repository's Actions secrets, where the deploy workflow reads it from.
 hcloud_token   = "..."
 public_domain  = "traffic.example.com"
-ssh_public_key = "ssh-ed25519 AAAA... deploy@traffic-dashboard"
+ssh_public_key    = "ssh-ed25519 AAAA... you@laptop"
+deploy_public_key = "ssh-ed25519 AAAA... deploy@traffic-dashboard"

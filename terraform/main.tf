@@ -3,11 +3,6 @@ resource "random_password" "postgres" {
   special = false
 }
 
-resource "hcloud_ssh_key" "deploy" {
-  name       = "traffic-dashboard"
-  public_key = var.ssh_public_key
-}
-
 resource "hcloud_firewall" "web" {
   name = "traffic-dashboard"
 
@@ -42,7 +37,11 @@ resource "hcloud_server" "app" {
   server_type = var.server_type
   location    = var.location
 
-  ssh_keys     = [hcloud_ssh_key.deploy.id]
+  # Keys are handed to cloud-init rather than registered as hcloud_ssh_key
+  # resources: Hetzner enforces uniqueness on the key material across the whole
+  # account, so a key already present for another project would fail the apply.
+  # cloud-init also lets the deploy key carry its forced command, which the
+  # provider's ssh_keys cannot express.
   firewall_ids = [hcloud_firewall.web.id]
 
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
@@ -50,6 +49,8 @@ resource "hcloud_server" "app" {
     repository_url    = var.repository_url
     seed_events       = var.seed_events
     postgres_password = random_password.postgres.result
+    admin_public_key  = var.ssh_public_key
+    deploy_public_key = var.deploy_public_key
   })
 
   # Changing user_data replaces the server, which is the honest behaviour:

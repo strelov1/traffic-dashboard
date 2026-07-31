@@ -2,6 +2,10 @@
 # Runs once, on first boot. Everything after this is the deploy workflow's job:
 # this file installs Docker and starts the stack, it does not know about
 # releases.
+# No password authentication: the keys below are the only way in.
+ssh_pwauth: false
+disable_root: false
+
 package_update: true
 packages:
   - ca-certificates
@@ -24,6 +28,15 @@ write_files:
       WEB_PORT=127.0.0.1:8091
       SEED_EVENTS=${seed_events}
       POSTGRES_PASSWORD=${postgres_password}
+
+  # Two keys with different powers. The administrator key is unrestricted; the
+  # deploy key carries a forced command, so it can run the deploy and nothing
+  # else — no shell, no port forwarding.
+  - path: /root/.ssh/authorized_keys
+    permissions: '0600'
+    content: |
+      ${admin_public_key}
+      command="/opt/traffic-dashboard/deploy/host-deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ${deploy_public_key}
 
 runcmd:
   - install -m 0755 -d /etc/apt/keyrings
