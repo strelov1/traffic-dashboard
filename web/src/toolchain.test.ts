@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-// Proves the workspace test harness runs TypeScript under ESM in this package.
-// Superseded by the real suites added in the tasks that follow.
+// Proves the harness runs; replaced by the real suite when the shell lands.
 describe('web toolchain', () => {
   it('runs a TypeScript module under ESM', () => {
     const doubled: number[] = [1, 2, 3].map((n) => n * 2)
