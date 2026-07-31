@@ -9,7 +9,8 @@ export default defineConfig({
     hookTimeout: 180_000,
     // Each integration suite starts its own database container. On a two-core
     // CI runner, letting every file start one at once thrashes rather than
-    // finishing sooner.
-    maxWorkers: process.env['CI'] ? 2 : undefined,
+    // finishing sooner. Spread rather than set to undefined: exactOptionalPropertyTypes
+    // refuses an explicit undefined for an optional field.
+    ...(process.env['CI'] ? { maxWorkers: 2 } : {}),
   },
 })
