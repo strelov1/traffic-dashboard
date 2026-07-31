@@ -1,17 +1,15 @@
 import type { FastifyInstance, FastifyReply } from 'fastify'
 
-import { toEvent, UnrepresentableInstant, type TrafficEvent } from '../domain/detection.js'
-import { VEHICLE_TYPES, type VehicleType } from '../domain/vehicle-type.js'
+import { toEvent, type TrafficEvent } from '../domain/detection.js'
+import { UnrepresentableInstant } from '../domain/instant.js'
+import type { VehicleType } from '../domain/vehicle-type.js'
 import type { TrafficRepository } from '../ports.js'
+import { fields } from './fields.js'
 
-// Restates the database's constraints so a client's mistake is a 400 that names
-// the field, not a 500 carrying a check-constraint message. The database stays
-// the last line of defence; this is the first, and only this one can explain
-// itself to a caller.
 const detectionFields = {
-  plateCountry: { type: 'string', pattern: '^[A-Z]{2}$' },
-  vehicleType: { type: 'string', enum: [...VEHICLE_TYPES] },
-  occurredAt: { type: 'string', format: 'date-time' },
+  plateCountry: fields.plateCountry,
+  vehicleType: fields.vehicleType,
+  occurredAt: fields.instant,
 } as const
 
 const recordBody = {
