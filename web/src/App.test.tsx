@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { cloneElement, type ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -63,6 +63,39 @@ describe('App', () => {
     )
 
     expect(await screen.findByText('car', { selector: 'tspan' })).toBeInTheDocument()
+  })
+
+  it('recovers a failed chart, and the headline with it, when the reader retries', async () => {
+    // The API is unreachable while nginx already serves the bundle, then
+    // answers: the first visit fails and the second one works.
+    const loadByCountry = vi
+      .fn<() => Promise<CategoryTotal[]>>()
+      .mockRejectedValueOnce(new Error('answered 500'))
+      .mockResolvedValueOnce([{ label: 'AE', total: 4 }])
+
+    render(<App loadByCountry={loadByCountry} loadByVehicleType={resolving([])} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /try again: by plate country/i }))
+
+    expect(await screen.findByText('AE', { selector: 'tspan' })).toBeInTheDocument()
+    expect(screen.getByTestId('total-events')).toHaveTextContent('4')
+  })
+
+  it('retries only the chart that failed', async () => {
+    const loadByVehicleType = vi
+      .fn<() => Promise<CategoryTotal[]>>()
+      .mockRejectedValueOnce(new Error('answered 500'))
+      .mockResolvedValueOnce([{ label: 'car', total: 7 }])
+    const loadByCountry = vi
+      .fn<() => Promise<CategoryTotal[]>>()
+      .mockResolvedValue([{ label: 'AE', total: 4 }])
+
+    render(<App loadByCountry={loadByCountry} loadByVehicleType={loadByVehicleType} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /try again: by vehicle type/i }))
+
+    expect(await screen.findByText('car', { selector: 'tspan' })).toBeInTheDocument()
+    expect(loadByCountry).toHaveBeenCalledTimes(1)
   })
 
   it('reports a failed chart without disturbing the one that loaded', async () => {

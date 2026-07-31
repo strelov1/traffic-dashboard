@@ -8,8 +8,8 @@ type Props = {
 }
 
 export function App({ loadByCountry, loadByVehicleType }: Props) {
-  const byCountry = useAsync(loadByCountry)
-  const byVehicleType = useAsync(loadByVehicleType)
+  const [byCountry, reloadByCountry] = useAsync(loadByCountry)
+  const [byVehicleType, reloadByVehicleType] = useAsync(loadByVehicleType)
 
   // Summed from an aggregate already on hand rather than fetched: one more
   // endpoint for a number the page can add up itself would be one more thing
@@ -42,8 +42,8 @@ export function App({ loadByCountry, loadByVehicleType }: Props) {
       </header>
 
       <main className="grid">
-        <TotalsChart title="By plate country" state={byCountry} />
-        <TotalsChart title="By vehicle type" state={byVehicleType} />
+        <TotalsChart title="By plate country" state={byCountry} onRetry={reloadByCountry} />
+        <TotalsChart title="By vehicle type" state={byVehicleType} onRetry={reloadByVehicleType} />
       </main>
     </div>
   )

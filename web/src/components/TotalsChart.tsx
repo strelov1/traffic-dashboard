@@ -14,20 +14,21 @@ import type { AsyncState } from '../useAsync'
 type Props = {
   title: string
   state: AsyncState<CategoryTotal[]>
+  onRetry: () => void
 }
 
 const BAR_HEIGHT = 34
 
-export function TotalsChart({ title, state }: Props) {
+export function TotalsChart({ title, state, onRetry }: Props) {
   return (
     <section className="panel" aria-labelledby={headingId(title)}>
       <h2 id={headingId(title)}>{title}</h2>
-      {renderBody(state)}
+      {renderBody(title, state, onRetry)}
     </section>
   )
 }
 
-function renderBody(state: AsyncState<CategoryTotal[]>) {
+function renderBody(title: string, state: AsyncState<CategoryTotal[]>, onRetry: () => void) {
   if (state.status === 'loading') {
     return (
       <p className="panel__note" role="status">
@@ -38,9 +39,22 @@ function renderBody(state: AsyncState<CategoryTotal[]>) {
 
   if (state.status === 'failed') {
     return (
-      <p className="panel__note panel__note--failed" role="status">
-        Could not load this chart: {state.reason}
-      </p>
+      <div className="panel__failure">
+        <p className="panel__note panel__note--failed" role="status">
+          Could not load this chart: {state.reason}
+        </p>
+        {/* One retry per panel, each named after the chart it reloads: the
+            visible word is the same on both, and a reader listing the page's
+            controls would otherwise meet two identical buttons. */}
+        <button
+          type="button"
+          className="panel__retry"
+          aria-label={`Try again: ${title}`}
+          onClick={onRetry}
+        >
+          Try again
+        </button>
+      </div>
     )
   }
 
