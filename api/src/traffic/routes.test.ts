@@ -11,6 +11,8 @@ function serve(totals: {
   const repository = {
     insertMany: () => Promise.reject(new Error('not used by these routes')),
     countEvents: () => Promise.reject(new Error('not used by these routes')),
+    updateEvent: () => Promise.reject(new Error('not used by these routes')),
+    deleteEvent: () => Promise.reject(new Error('not used by these routes')),
     totalsByCountry: () => Promise.resolve(totals.byCountry ?? []),
     totalsByVehicleType: () => Promise.resolve(totals.byVehicleType ?? []),
   } satisfies TrafficRepository
