@@ -1,0 +1,37 @@
+#cloud-config
+# Runs once, on first boot. Everything after this is the deploy workflow's job:
+# this file installs Docker and starts the stack, it does not know about
+# releases.
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+
+write_files:
+  - path: /opt/traffic-dashboard.env
+    permissions: '0600'
+    content: |
+      # Read by docker compose itself, so the deploy workflow can run a plain
+      # `docker compose up` and each host brings up its own set of files.
+      COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+      PUBLIC_DOMAIN=${public_domain}
+      PUBLIC_ORIGIN=https://${public_domain}
+      # Bound to loopback: Caddy is the only way in, and the firewall would
+      # refuse these ports anyway. Both together, because a firewall rule and a
+      # bind address fail in different ways.
+      API_PORT=127.0.0.1:3390
+      WEB_PORT=127.0.0.1:8091
+      SEED_EVENTS=${seed_events}
+      POSTGRES_PASSWORD=${postgres_password}
+
+runcmd:
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - git clone ${repository_url} /opt/traffic-dashboard
+  - mv /opt/traffic-dashboard.env /opt/traffic-dashboard/.env
+  - cd /opt/traffic-dashboard && docker compose up -d --build

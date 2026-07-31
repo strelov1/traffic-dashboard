@@ -1,0 +1,43 @@
+# Adds TLS termination in front of the stack. Selected by COMPOSE_FILE in the
+# host's .env:
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+#
+# so that `docker compose up -d --build` means the right thing on every host and
+# the deploy workflow does not need to know which one it is talking to.
+#
+# The base file stays the single description of the application; this one only
+# adds what a public host needs. Set API_PORT and WEB_PORT to 127.0.0.1-scoped
+# values so the only way in is through Caddy.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN, e.g. traffic.example.com}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and ACME account keys. Losing this volume means re-issuing
+      # on next boot, which Let's Encrypt rate-limits.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+  api:
+    restart: unless-stopped
+
+  web:
+    restart: unless-stopped
+
+  db:
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

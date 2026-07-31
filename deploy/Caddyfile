@@ -1,0 +1,17 @@
+# One origin for both: the frontend is served from / and the API from /api, so
+# the browser never makes a cross-origin request and CORS is not involved.
+#
+# Caddy obtains and renews the certificate itself. There is no certbot, no cron,
+# and no manual DNS step — which is the whole reason a dedicated host is worth
+# provisioning rather than sharing one.
+{$PUBLIC_DOMAIN} {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
+}

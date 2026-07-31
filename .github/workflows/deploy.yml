@@ -1,0 +1,39 @@
+name: Deploy
+
+# Runs only after CI has passed on main. A separate workflow rather than a job
+# in CI, so reordering the jobs there cannot make a red build deploy.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authorise against the host
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # The commit is the entire request. The key is installed on the host as a
+      # forced command, so this cannot run anything else even if the expression
+      # below were somehow attacker-controlled; the script checks it is a hex
+      # sha before it reaches git.
+      - name: Roll forward, and back again if it does not answer
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: ssh -o BatchMode=yes "$USER@$HOST" "$SHA"
