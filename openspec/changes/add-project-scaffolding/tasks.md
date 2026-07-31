@@ -6,10 +6,10 @@
 
 ## 2. API configuration and error shape
 
-- [ ] 2.1 Scaffold the `api` package with Fastify and a build and dev script
-- [ ] 2.2 Read `DATABASE_URL` through a config module that exits non-zero with a message naming the missing variable
-- [ ] 2.3 Render unknown routes as `404 {"error": "<message>"}`
-- [ ] 2.4 Render unhandled failures as 5xx `{"error": "<message>"}` without leaking stack traces or driver internals
+- [x] 2.1 Scaffold the `api` package with Fastify and a build and dev script
+- [x] 2.2 Read `DATABASE_URL` through a config module that exits non-zero with a message naming the missing variable
+- [x] 2.3 Render unknown routes as `404 {"error": "<message>"}`
+- [x] 2.4 Render unhandled failures as 5xx `{"error": "<message>"}` without leaking stack traces or driver internals
 
 ## 3. Database access and migrations
 
