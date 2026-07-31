@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { CountryTotal, TrafficRepository, VehicleTypeTotal } from './repository.js'
-import { registerTrafficRoutes } from './routes.js'
+import { registerAggregateRoutes } from './aggregate-routes.js'
 
 function serve(totals: {
   byCountry?: CountryTotal[]
@@ -18,7 +18,7 @@ function serve(totals: {
   } satisfies TrafficRepository
 
   const server = Fastify({ logger: false })
-  registerTrafficRoutes(server, repository)
+  registerAggregateRoutes(server, repository)
 
   return server
 }

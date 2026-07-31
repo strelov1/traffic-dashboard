@@ -99,7 +99,7 @@ describe('traffic ingest', () => {
       const response = await record([detection])
 
       expect(response.statusCode).toBe(400)
-      expect(response.json()).toEqual({ error: expect.any(String) as unknown })
+      expect(typeof response.json<{ error?: unknown }>().error).toBe('string')
 
       const [row] = await postgres.database.query(
         z.object({ total: z.coerce.number() }),
@@ -177,6 +177,15 @@ describe('traffic ingest', () => {
       const response = await server.inject({ method: 'DELETE', url: '/api/traffic/events/999999' })
 
       expect(response.statusCode).toBe(404)
+    })
+
+    it('rejects an id too large to be one, rather than letting Postgres overflow', async () => {
+      const response = await server.inject({
+        method: 'DELETE',
+        url: '/api/traffic/events/99999999999999999999999',
+      })
+
+      expect(response.statusCode).toBe(400)
     })
   })
 })

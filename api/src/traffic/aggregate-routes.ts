@@ -30,7 +30,7 @@ function totalsResponseSchema(category: string) {
   }
 }
 
-export function registerTrafficRoutes(
+export function registerAggregateRoutes(
   server: FastifyInstance,
   repository: TrafficRepository,
 ): void {

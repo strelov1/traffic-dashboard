@@ -30,7 +30,7 @@ export type TrafficRepository = {
   totalsByVehicleType: () => Promise<VehicleTypeTotal[]>
 }
 
-const insertedId = z.object({ id: z.string() })
+const eventId = z.object({ id: z.string() })
 
 // count(*) is a bigint, which pg returns as a string so that values beyond
 // 2^53 keep their precision. Coerced here rather than cast in SQL, where ::int
@@ -97,7 +97,7 @@ export function createTrafficRepository(database: Database): TrafficRepository {
         return 0
       }
 
-      const rows = await database.query(insertedId, INSERT_MANY, [
+      const rows = await database.query(eventId, INSERT_MANY, [
         events.map((it) => it.occurredAt),
         events.map((it) => it.plateCountry),
         events.map((it) => it.vehicleType),
@@ -124,7 +124,7 @@ export function createTrafficRepository(database: Database): TrafficRepository {
     },
 
     deleteEvent: async (id) => {
-      const rows = await database.query(insertedId, DELETE_EVENT, [id])
+      const rows = await database.query(eventId, DELETE_EVENT, [id])
 
       return rows.length > 0
     },

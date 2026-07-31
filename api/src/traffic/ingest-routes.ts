@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 
 import type { TrafficEvent, TrafficRepository } from './repository.js'
 import { VEHICLE_TYPES, type VehicleType } from './vehicle-types.js'
@@ -34,7 +34,9 @@ const recordBody = {
 const idParams = {
   type: 'object',
   required: ['id'],
-  properties: { id: { type: 'string', pattern: '^[0-9]+$' } },
+  // Capped at 18 digits: beyond that Postgres raises a bigint overflow, which
+  // would answer 500 for what is a malformed id. No table reaches 10^18 rows.
+  properties: { id: { type: 'string', pattern: '^[0-9]{1,18}$' } },
 } as const
 
 const correctionBody = {
@@ -44,6 +46,22 @@ const correctionBody = {
   // something, and should learn it did not arrive.
   minProperties: 1,
   properties: detectionFields,
+} as const
+
+const recordedResponse = {
+  201: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data'],
+    properties: {
+      data: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['recorded'],
+        properties: { recorded: { type: 'integer' } },
+      },
+    },
+  },
 } as const
 
 type Detection = {
@@ -58,26 +76,7 @@ export function registerIngestRoutes(
 ): void {
   server.post<{ Body: { events: Detection[] } }>(
     '/api/traffic/events',
-    {
-      schema: {
-        body: recordBody,
-        response: {
-          201: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['data'],
-            properties: {
-              data: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['recorded'],
-                properties: { recorded: { type: 'integer' } },
-              },
-            },
-          },
-        },
-      },
-    },
+    { schema: { body: recordBody, response: recordedResponse } },
     async (request, reply) => {
       const recorded = await repository.insertMany(request.body.events.map(toEvent))
 
@@ -92,9 +91,7 @@ export function registerIngestRoutes(
       const updated = await repository.updateEvent(request.params.id, toChange(request.body))
 
       if (!updated) {
-        await reply.code(404).send({ error: `No event with id ${request.params.id}` })
-
-        return
+        return noSuchEvent(reply, request.params.id)
       }
 
       await reply.send({ data: updated })
@@ -108,14 +105,16 @@ export function registerIngestRoutes(
       const removed = await repository.deleteEvent(request.params.id)
 
       if (!removed) {
-        await reply.code(404).send({ error: `No event with id ${request.params.id}` })
-
-        return
+        return noSuchEvent(reply, request.params.id)
       }
 
       await reply.code(204).send()
     },
   )
+}
+
+async function noSuchEvent(reply: FastifyReply, id: string): Promise<void> {
+  await reply.code(404).send({ error: `No event with id ${id}` })
 }
 
 function toEvent(detection: Detection): TrafficEvent {

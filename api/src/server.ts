@@ -7,9 +7,9 @@ import Fastify, {
 
 import type { Database } from './db.js'
 import { registerHealthRoute } from './health.js'
-import { registerIngestRoutes } from './traffic/ingest.js'
+import { registerIngestRoutes } from './traffic/ingest-routes.js'
 import { createTrafficRepository } from './traffic/repository.js'
-import { registerTrafficRoutes } from './traffic/routes.js'
+import { registerAggregateRoutes } from './traffic/aggregate-routes.js'
 
 export type ServerDependencies = {
   database: Database
@@ -39,7 +39,7 @@ export function buildServer(
   registerHealthRoute(server, dependencies.database)
   // Derived, not injected: it is fully determined by the database.
   const traffic = createTrafficRepository(dependencies.database)
-  registerTrafficRoutes(server, traffic)
+  registerAggregateRoutes(server, traffic)
   registerIngestRoutes(server, traffic)
 
   server.setNotFoundHandler((request, reply) => {
