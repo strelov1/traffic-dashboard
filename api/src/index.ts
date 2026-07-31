@@ -19,10 +19,11 @@ async function main(): Promise<void> {
   if (config.seedEvents > 0) {
     const written = await seedTrafficEvents(database, repository, { events: config.seedEvents })
 
-    server.log.info(
-      { written },
-      written === 0 ? 'traffic_events already populated, seed skipped' : 'seeded traffic_events',
-    )
+    if (written === 0) {
+      server.log.info('traffic_events already populated, seed skipped')
+    } else {
+      server.log.info({ written }, 'seeded traffic_events')
+    }
   }
 
   // Not the default loopback: the port has to be reachable from outside the container.

@@ -9,21 +9,8 @@ export type SeedOptions = {
 
 // Weights are expressed by repetition rather than by a cumulative-probability
 // expression: the ratios stay readable, and the pick stays a single array index.
-const PLATE_COUNTRIES = ['AE', 'AE', 'AE', 'AE', 'AE', 'SA', 'SA', 'OM', 'QA', 'KW', 'BH']
-const VEHICLE_WEIGHTS = [
-  'car',
-  'car',
-  'car',
-  'car',
-  'car',
-  'car',
-  'van',
-  'van',
-  'truck',
-  'bus',
-  'motorcycle',
-  'bicycle',
-]
+const PLATE_COUNTRY_POOL = ['AE', 'AE', 'AE', 'AE', 'AE', 'SA', 'SA', 'OM', 'QA', 'KW', 'BH']
+const VEHICLE_TYPE_POOL = ['car', 'car', 'car', 'car', 'car', 'car', 'van', 'van', 'truck', 'bus', 'motorcycle', 'bicycle']
 
 const SEED_DAYS = 30
 
@@ -43,7 +30,7 @@ const GENERATE = `
  */
 export async function seedTrafficEvents(
   database: Database,
-  repository: TrafficRepository,
+  repository: Pick<TrafficRepository, 'countEvents'>,
   options: SeedOptions,
 ): Promise<number> {
   if ((await repository.countEvents()) > 0) {
@@ -53,8 +40,8 @@ export async function seedTrafficEvents(
   await database.query(z.unknown(), GENERATE, [
     options.events,
     SEED_DAYS,
-    PLATE_COUNTRIES,
-    VEHICLE_WEIGHTS,
+    PLATE_COUNTRY_POOL,
+    VEHICLE_TYPE_POOL,
   ])
 
   return repository.countEvents()

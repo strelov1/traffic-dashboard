@@ -17,15 +17,14 @@ export function createDatabase(databaseUrl: string): Database {
   pool.on('error', () => undefined)
 
   return {
-    // The shape is a parameter rather than a type argument so that rows are
-    // checked at runtime. A generic here would only be an assertion, and a
-    // renamed column would reach the caller as undefined.
+    // A parameter, not a type argument: a generic would only be an assertion,
+    // and a renamed column would reach the caller as undefined.
     query: async <T>(shape: z.ZodType<T>, sql: string, params?: unknown[]) => {
       const result = await pool.query(sql, params)
       const rows = z.array(shape).safeParse(result.rows)
 
       if (!rows.success) {
-        throw new Error(`query returned rows of an unexpected shape: ${describe(rows.error)}`)
+        throw new Error(`query returned rows of an unexpected shape: ${describeMismatch(rows.error)}`)
       }
 
       return rows.data
@@ -45,7 +44,7 @@ export function createDatabase(databaseUrl: string): Database {
   }
 }
 
-function describe(error: z.ZodError): string {
+function describeMismatch(error: z.ZodError): string {
   return error.issues
     .map((issue) => `${issue.path.join('.') || '<row>'}: ${issue.message}`)
     .join('; ')

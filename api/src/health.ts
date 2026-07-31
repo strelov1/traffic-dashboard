@@ -6,13 +6,12 @@ export function registerHealthRoute(server: FastifyInstance, database: Database)
   server.get('/api/health', async (_request, reply) => {
     const reachable = await database.isReachable()
 
-    // Reported per request: a cached verdict would keep answering "up" for
+    // Checked per request: a cached verdict would keep answering "up" for
     // exactly as long as the outage this endpoint exists to reveal.
-    await reply.code(reachable ? 200 : 503).send({
-      data: {
-        status: reachable ? 'ok' : 'degraded',
-        database: reachable ? 'up' : 'down',
-      },
-    })
+    const data = reachable
+      ? { status: 'ok', database: 'up' }
+      : { status: 'degraded', database: 'down' }
+
+    await reply.code(reachable ? 200 : 503).send({ data })
   })
 }

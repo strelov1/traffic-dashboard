@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { buildServer } from '../server.js'
 import { startMigratedPostgres, type MigratedPostgres } from '../testing/postgres.js'
+import { trafficEvents } from '../testing/traffic-events.js'
 import { createTrafficRepository } from './repository.js'
 
 // Drives the built server against real Postgres: a route registered on the
@@ -15,18 +16,7 @@ describe('traffic aggregates against Postgres', () => {
     postgres = await startMigratedPostgres()
 
     const repository = createTrafficRepository(postgres.database)
-    await repository.insertMany([
-      ...Array.from({ length: 3 }, () => ({
-        occurredAt: new Date('2026-07-01T08:00:00Z'),
-        plateCountry: 'AE',
-        vehicleType: 'car' as const,
-      })),
-      {
-        occurredAt: new Date('2026-07-01T09:00:00Z'),
-        plateCountry: 'SA',
-        vehicleType: 'bus' as const,
-      },
-    ])
+    await repository.insertMany(trafficEvents(['AE', 'car', 3], ['SA', 'bus', 1]))
 
     server = buildServer(
       { database: postgres.database, webOrigin: 'http://localhost:5173' },

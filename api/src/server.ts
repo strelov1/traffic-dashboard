@@ -30,9 +30,7 @@ export function buildServer(
   void server.register(cors, { origin: dependencies.webOrigin })
 
   registerHealthRoute(server, dependencies.database)
-  // Derived rather than injected: the repository is fully determined by the
-  // database, and a second parameter for it would be one more thing to pass
-  // and to get wrong. Route suites exercise it directly with a stub.
+  // Derived, not injected: it is fully determined by the database.
   registerTrafficRoutes(server, createTrafficRepository(dependencies.database))
 
   server.setNotFoundHandler((request, reply) => {

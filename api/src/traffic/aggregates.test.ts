@@ -2,18 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { startMigratedPostgres, type MigratedPostgres } from '../testing/postgres.js'
-import { createTrafficRepository, type TrafficEvent, type TrafficRepository } from './repository.js'
-import type { VehicleType } from './vehicle-types.js'
-
-function events(spec: [plateCountry: string, vehicleType: VehicleType, count: number][]) {
-  return spec.flatMap(([plateCountry, vehicleType, count]) =>
-    Array.from({ length: count }, (): TrafficEvent => ({
-      occurredAt: new Date('2026-07-01T08:15:00Z'),
-      plateCountry,
-      vehicleType,
-    })),
-  )
-}
+import { trafficEvents } from '../testing/traffic-events.js'
+import { createTrafficRepository, type TrafficRepository } from './repository.js'
 
 describe('traffic aggregates', () => {
   let postgres: MigratedPostgres
@@ -36,7 +26,7 @@ describe('traffic aggregates', () => {
     })
 
     it('counts every event for each country', async () => {
-      await repository.insertMany(events([['AE', 'car', 3], ['SA', 'car', 1]]))
+      await repository.insertMany(trafficEvents(['AE', 'car', 3], ['SA', 'car', 1]))
 
       await expect(repository.totalsByCountry()).resolves.toEqual([
         { plateCountry: 'AE', total: 3 },
@@ -46,7 +36,7 @@ describe('traffic aggregates', () => {
 
     it('orders the largest total first', async () => {
       await repository.insertMany(
-        events([['QA', 'car', 1], ['AE', 'car', 5], ['SA', 'car', 3]]),
+        trafficEvents(['QA', 'car', 1], ['AE', 'car', 5], ['SA', 'car', 3]),
       )
 
       const totals = await repository.totalsByCountry()
@@ -55,7 +45,7 @@ describe('traffic aggregates', () => {
     })
 
     it('breaks a tie by country so repeated requests agree', async () => {
-      await repository.insertMany(events([['SA', 'car', 2], ['AE', 'car', 2]]))
+      await repository.insertMany(trafficEvents(['SA', 'car', 2], ['AE', 'car', 2]))
 
       const first = await repository.totalsByCountry()
       const second = await repository.totalsByCountry()
@@ -65,7 +55,7 @@ describe('traffic aggregates', () => {
     })
 
     it('returns totals as numbers, not the strings the driver hands back', async () => {
-      await repository.insertMany(events([['AE', 'car', 2]]))
+      await repository.insertMany(trafficEvents(['AE', 'car', 2]))
 
       const [entry] = await repository.totalsByCountry()
 
@@ -79,7 +69,7 @@ describe('traffic aggregates', () => {
     })
 
     it('counts every event for each vehicle type', async () => {
-      await repository.insertMany(events([['AE', 'car', 4], ['AE', 'bus', 1]]))
+      await repository.insertMany(trafficEvents(['AE', 'car', 4], ['AE', 'bus', 1]))
 
       await expect(repository.totalsByVehicleType()).resolves.toEqual([
         { vehicleType: 'car', total: 4 },
@@ -88,7 +78,7 @@ describe('traffic aggregates', () => {
     })
 
     it('breaks a tie by vehicle type so repeated requests agree', async () => {
-      await repository.insertMany(events([['AE', 'van', 2], ['AE', 'bus', 2]]))
+      await repository.insertMany(trafficEvents(['AE', 'van', 2], ['AE', 'bus', 2]))
 
       const totals = await repository.totalsByVehicleType()
 
@@ -96,7 +86,7 @@ describe('traffic aggregates', () => {
     })
 
     it('reports only the types present in the data', async () => {
-      await repository.insertMany(events([['AE', 'truck', 1]]))
+      await repository.insertMany(trafficEvents(['AE', 'truck', 1]))
 
       await expect(repository.totalsByVehicleType()).resolves.toEqual([
         { vehicleType: 'truck', total: 1 },

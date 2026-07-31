@@ -24,7 +24,6 @@ const CONNECTION_ERROR_CODES = new Set([
   'EAI_AGAIN',
   'ETIMEDOUT',
   '57P03',
-  '53300',
 ])
 
 export async function migrateToLatest(options: MigrateOptions): Promise<void> {
