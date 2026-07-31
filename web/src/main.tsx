@@ -2,7 +2,12 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { App } from './App'
-import { fetchTotalsByCountry, fetchTotalsByVehicleType } from './api/traffic'
+import {
+  fetchTotalsByCountry,
+  fetchTotalsByVehicleType,
+  recordDetection,
+  type Detection,
+} from './api/traffic'
 import { API_ORIGIN } from './config'
 import { periodBounds, type Filter } from './filters'
 import './styles.css'
@@ -28,8 +33,10 @@ const loadByVehicleType = (filter: Filter) =>
     ...(filter.country === undefined ? {} : { country: filter.country }),
   })
 
+const record = (detection: Detection) => recordDetection(API_ORIGIN, detection)
+
 createRoot(container).render(
   <StrictMode>
-    <App loadByCountry={loadByCountry} loadByVehicleType={loadByVehicleType} />
+    <App loadByCountry={loadByCountry} loadByVehicleType={loadByVehicleType} record={record} />
   </StrictMode>,
 )

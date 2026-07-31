@@ -183,6 +183,18 @@ aggregate already on hand, never a further request, and the filter in effect is
 stated beside the number: a total that silently ignored the controls next to it
 would be a claim the reader has no way to check.
 
+**The dashboard writes as well as reads, and says what that costs.** A form
+records one detection through the same `POST` a camera would use, and both
+charts re-read once the API takes it: the detection lands in the hour that is
+served live, so the figures move rather than the page merely reporting a
+success. The plate country is free text that nothing in the browser validates —
+a field that could not submit `Oman` could never show the API refusing `Oman` —
+so what the reader gets back is the request schema's own words. The vehicle
+classes are the set the API accepts, kept from drifting by a test that reads the
+domain module rather than a copy of it. And the button sits on an
+unauthenticated endpoint, which the page states beside it rather than leaving to
+this file.
+
 ## Scaling: 5 → 50 → 500 RPS
 
 Everything below is measured on this machine with `k6`, not estimated.
@@ -320,7 +332,8 @@ the filter excludes is a chunk of the *aggregate's* hypertable.
 The load test exercises **reads**. Writes cannot be cached and were not part of
 the tiers above; the write path is a batch insert and the honest position is
 that its ceiling is unmeasured. That, and an unauthenticated write path, are the
-first two things a real deployment would need.
+first two things a real deployment would need — and the dashboard's record
+control now puts a button on the second one, which is why it says so there too.
 
 The load test also exercises the **unbounded** read only. The filtered tiers in
 `docs/performance/filtered-aggregate.md` are plan-level measurements of the
@@ -412,7 +425,7 @@ is not committed.
 
 ## Tests
 
-164, across three levels.
+298, across three levels.
 
 - **Unit** — configuration, error rendering, the health route against a stub.
 - **Integration** — everything touching SQL, against a real TimescaleDB started

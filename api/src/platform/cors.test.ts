@@ -35,6 +35,26 @@ describe('cross-origin access', () => {
     expect(response.headers['access-control-allow-origin']).toBe(WEB_ORIGIN)
   })
 
+  it('answers the preflight a JSON write sends', async () => {
+    // The dashboard's record control posts `content-type: application/json`,
+    // which is not a simple request: the browser asks first, and a preflight
+    // that did not allow the header would fail the write before it was sent.
+    // The reads never needed one, so nothing exercised this until now.
+    const response = await server.inject({
+      method: 'OPTIONS',
+      url: '/api/traffic/events',
+      headers: {
+        origin: WEB_ORIGIN,
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type',
+      },
+    })
+
+    expect(response.statusCode).toBeLessThan(300)
+    expect(response.headers['access-control-allow-origin']).toBe(WEB_ORIGIN)
+    expect(String(response.headers['access-control-allow-headers'])).toMatch(/content-type/i)
+  })
+
   it('never echoes the requesting origin back to it', async () => {
     const response = await server.inject({
       method: 'GET',

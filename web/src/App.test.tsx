@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { cloneElement, type ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
-import type { CategoryTotal } from './api/traffic'
+import { DetectionRejected, type CategoryTotal } from './api/traffic'
 import type { Filter } from './filters'
 
 vi.mock('recharts', async (importOriginal) => ({
@@ -15,6 +15,9 @@ vi.mock('recharts', async (importOriginal) => ({
 const never = () => new Promise<CategoryTotal[]>(() => undefined)
 const resolving = (value: CategoryTotal[]) => () => Promise.resolve(value)
 const failing = (reason: string) => () => Promise.reject(new Error(reason))
+
+/** The API takes the detection. What the form does with it is its own suite. */
+const stored = () => Promise.resolve()
 
 // The filter lives in the URL, so every test that touches it leaves one behind.
 afterEach(() => {
@@ -40,14 +43,14 @@ function recording(value: CategoryTotal[] = []) {
 
 describe('App', () => {
   it('titles both charts', async () => {
-    render(<App loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
+    render(<App record={stored} loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
 
     expect(await screen.findByRole('heading', { name: /country/i })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: /vehicle type/i })).toBeInTheDocument()
   })
 
   it('links to the source, opened without handing the opener over', () => {
-    render(<App loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
+    render(<App record={stored} loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
 
     const link = screen.getByRole('link', { name: /source/i })
 
@@ -60,6 +63,7 @@ describe('App', () => {
   it('leads with the total number of recorded events', async () => {
     render(
       <App
+        record={stored}
         loadByCountry={resolving([
           { label: 'AE', total: 3 },
           { label: 'SA', total: 1 },
@@ -72,7 +76,7 @@ describe('App', () => {
   })
 
   it('holds the total back until the aggregate it is derived from arrives', () => {
-    render(<App loadByCountry={never} loadByVehicleType={resolving([])} />)
+    render(<App record={stored} loadByCountry={never} loadByVehicleType={resolving([])} />)
 
     expect(screen.getByTestId('total-events')).toHaveTextContent('—')
   })
@@ -80,6 +84,7 @@ describe('App', () => {
   it('renders one chart while the other is still loading', async () => {
     render(
       <App
+        record={stored}
         loadByCountry={never}
         loadByVehicleType={resolving([{ label: 'car', total: 7 }])}
       />,
@@ -96,7 +101,7 @@ describe('App', () => {
       .mockRejectedValueOnce(new Error('answered 500'))
       .mockResolvedValueOnce([{ label: 'AE', total: 4 }])
 
-    render(<App loadByCountry={loadByCountry} loadByVehicleType={resolving([])} />)
+    render(<App record={stored} loadByCountry={loadByCountry} loadByVehicleType={resolving([])} />)
 
     fireEvent.click(await screen.findByRole('button', { name: /try again: by plate country/i }))
 
@@ -113,7 +118,13 @@ describe('App', () => {
       .fn<() => Promise<CategoryTotal[]>>()
       .mockResolvedValue([{ label: 'AE', total: 4 }])
 
-    render(<App loadByCountry={loadByCountry} loadByVehicleType={loadByVehicleType} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={loadByCountry}
+        loadByVehicleType={loadByVehicleType}
+      />,
+    )
 
     fireEvent.click(await screen.findByRole('button', { name: /try again: by vehicle type/i }))
 
@@ -124,6 +135,7 @@ describe('App', () => {
   it('reports a failed chart without disturbing the one that loaded', async () => {
     render(
       <App
+        record={stored}
         loadByCountry={failing('answered 500')}
         loadByVehicleType={resolving([{ label: 'car', total: 7 }])}
       />,
@@ -139,7 +151,13 @@ describe('the period control', () => {
     const byCountry = recording()
     const byVehicleType = recording()
 
-    render(<App loadByCountry={byCountry.load} loadByVehicleType={byVehicleType.load} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={byCountry.load}
+        loadByVehicleType={byVehicleType.load}
+      />,
+    )
 
     await waitFor(() => {
       expect(byCountry.filters).toEqual([{ period: 'all' }])
@@ -152,7 +170,13 @@ describe('the period control', () => {
     const byCountry = recording()
     const byVehicleType = recording()
 
-    render(<App loadByCountry={byCountry.load} loadByVehicleType={byVehicleType.load} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={byCountry.load}
+        loadByVehicleType={byVehicleType.load}
+      />,
+    )
     await waitFor(() => {
       expect(byCountry.filters).toHaveLength(1)
     })
@@ -169,7 +193,7 @@ describe('the period control', () => {
     window.history.replaceState(null, '', '/?period=30d')
     const byCountry = recording()
 
-    render(<App loadByCountry={byCountry.load} loadByVehicleType={resolving([])} />)
+    render(<App record={stored} loadByCountry={byCountry.load} loadByVehicleType={resolving([])} />)
 
     await waitFor(() => {
       expect(byCountry.filters).toEqual([{ period: '30d' }])
@@ -181,7 +205,7 @@ describe('the period control', () => {
     window.history.replaceState(null, '', '/?period=since-tuesday')
     const byCountry = recording()
 
-    render(<App loadByCountry={byCountry.load} loadByVehicleType={resolving([])} />)
+    render(<App record={stored} loadByCountry={byCountry.load} loadByVehicleType={resolving([])} />)
 
     await waitFor(() => {
       expect(byCountry.filters).toEqual([{ period: 'all' }])
@@ -190,7 +214,7 @@ describe('the period control', () => {
   })
 
   it('puts the chosen period in the URL, so the view is a link', async () => {
-    render(<App loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
+    render(<App record={stored} loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
 
     fireEvent.change(periodControl(), { target: { value: '24h' } })
 
@@ -207,7 +231,13 @@ describe('the country control', () => {
   ]
 
   it('lists the countries the country aggregate reported', async () => {
-    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={resolving(TOTALS)}
+        loadByVehicleType={resolving([])}
+      />,
+    )
 
     await waitFor(() => {
       expect(countryControl()).toBeInTheDocument()
@@ -224,7 +254,13 @@ describe('the country control', () => {
     // beside it, which is the one thing the URL is supposed to prevent.
     window.history.replaceState(null, '', '/?country=QA')
 
-    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={resolving(TOTALS)}
+        loadByVehicleType={resolving([])}
+      />,
+    )
 
     await waitFor(() => {
       expect(countryControl()).toHaveValue('QA')
@@ -238,7 +274,13 @@ describe('the country control', () => {
     const byCountry = recording(TOTALS)
     const byVehicleType = recording()
 
-    render(<App loadByCountry={byCountry.load} loadByVehicleType={byVehicleType.load} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={byCountry.load}
+        loadByVehicleType={byVehicleType.load}
+      />,
+    )
     await waitFor(() => {
       expect(byVehicleType.filters).toHaveLength(1)
     })
@@ -255,7 +297,13 @@ describe('the country control', () => {
     window.history.replaceState(null, '', '/?country=AE')
     const byVehicleType = recording()
 
-    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={byVehicleType.load} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={resolving(TOTALS)}
+        loadByVehicleType={byVehicleType.load}
+      />,
+    )
     await waitFor(() => {
       expect(byVehicleType.filters).toEqual([{ period: 'all', country: 'AE' }])
     })
@@ -282,7 +330,13 @@ describe('the headline', () => {
     // for the same number is a second chance for the two to disagree.
     window.history.replaceState(null, '', '/?country=SA')
 
-    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={resolving(TOTALS)}
+        loadByVehicleType={resolving([])}
+      />,
+    )
 
     expect(await screen.findByTestId('total-events')).toHaveTextContent('1')
   })
@@ -290,7 +344,13 @@ describe('the headline', () => {
   it('reads zero for a country with no traffic rather than the unfiltered sum', async () => {
     window.history.replaceState(null, '', '/?country=QA')
 
-    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={resolving(TOTALS)}
+        loadByVehicleType={resolving([])}
+      />,
+    )
 
     expect(await screen.findByTestId('total-events')).toHaveTextContent('0')
   })
@@ -298,7 +358,13 @@ describe('the headline', () => {
   it('states the filter in effect beside the number', async () => {
     window.history.replaceState(null, '', '/?period=7d&country=AE')
 
-    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={resolving(TOTALS)}
+        loadByVehicleType={resolving([])}
+      />,
+    )
 
     const scope = await screen.findByTestId('headline-scope')
 
@@ -307,8 +373,87 @@ describe('the headline', () => {
   })
 
   it('states the scope even when nothing is narrowed', async () => {
-    render(<App loadByCountry={resolving(TOTALS)} loadByVehicleType={resolving([])} />)
+    render(
+      <App
+        record={stored}
+        loadByCountry={resolving(TOTALS)}
+        loadByVehicleType={resolving([])}
+      />,
+    )
 
     expect(await screen.findByTestId('headline-scope')).toHaveTextContent(/all time/i)
+  })
+})
+
+describe('recording a detection', () => {
+  // Scoped to the form's own region: an empty chart reports itself with a
+  // status role too, and the page has two of those.
+  const outcome = () =>
+    within(screen.getByRole('region', { name: /record a detection/i })).getByRole('status')
+
+  const submitOne = () => {
+    fireEvent.change(screen.getByLabelText('Plate country'), { target: { value: 'AE' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Record' }))
+  }
+
+  it('re-reads both aggregates once the API has taken it', async () => {
+    const byCountry = recording()
+    const byVehicleType = recording()
+
+    render(
+      <App record={stored} loadByCountry={byCountry.load} loadByVehicleType={byVehicleType.load} />,
+    )
+    await waitFor(() => {
+      expect(byCountry.filters).toHaveLength(1)
+    })
+
+    submitOne()
+
+    await waitFor(() => {
+      expect(byCountry.filters).toHaveLength(2)
+    })
+    expect(byVehicleType.filters).toHaveLength(2)
+  })
+
+  it('moves the headline, which is the whole point of the control', async () => {
+    // A form that reported a success over unchanged numbers would demonstrate
+    // less than `curl` does. The detection lands in the hour served live, so
+    // the next read counts it.
+    const loadByCountry = vi
+      .fn<() => Promise<CategoryTotal[]>>()
+      .mockResolvedValueOnce([{ label: 'AE', total: 4 }])
+      .mockResolvedValueOnce([{ label: 'AE', total: 5 }])
+
+    render(<App record={stored} loadByCountry={loadByCountry} loadByVehicleType={resolving([])} />)
+    expect(await screen.findByTestId('total-events')).toHaveTextContent('4')
+
+    submitOne()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('total-events')).toHaveTextContent('5')
+    })
+  })
+
+  it('leaves the aggregates alone when the API refuses the detection', async () => {
+    const byCountry = recording()
+    const refused = () => Promise.reject(new DetectionRejected('body/events/0/plateCountry ...'))
+
+    render(
+      <App
+        record={refused}
+        loadByCountry={byCountry.load}
+        loadByVehicleType={resolving([])}
+      />,
+    )
+    await waitFor(() => {
+      expect(byCountry.filters).toHaveLength(1)
+    })
+
+    submitOne()
+
+    await waitFor(() => {
+      expect(outcome()).toHaveTextContent(/refused/i)
+    })
+    expect(byCountry.filters).toHaveLength(1)
   })
 })
