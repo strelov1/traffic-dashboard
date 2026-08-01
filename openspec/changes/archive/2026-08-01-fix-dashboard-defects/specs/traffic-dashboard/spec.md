@@ -30,12 +30,12 @@ The dashboard SHALL follow the reader's preferred colour scheme, and each scheme
 
 Every colour used for text SHALL meet a contrast ratio of at least 4.5:1 against every surface it is drawn on. The 3:1 threshold applies to the bars, which carry no text, and SHALL NOT be applied to text on the grounds that the bars pass it.
 
-#### Scenario: A phone-width viewport
+#### Scenario: Narrow viewport
 
 - **WHEN** the dashboard is rendered at a 320px viewport
 - **THEN** the charts are stacked, and the document is no wider than the viewport
 
-#### Scenario: The reader prefers a dark scheme
+#### Scenario: Dark colour scheme
 
 - **WHEN** the reader's system asks for a dark colour scheme
 - **THEN** the dashboard renders on dark surfaces, with bar and text colours meeting contrast against those surfaces

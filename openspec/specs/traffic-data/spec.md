@@ -121,15 +121,6 @@ Because a partitioned table requires the partitioning column in every unique ind
 - **WHEN** a stored event is read, corrected, or removed by its id
 - **THEN** exactly that event is affected, without its instant being supplied
 
-### Requirement: Daily totals are maintained continuously
-
-The system SHALL maintain daily totals per plate country and per vehicle type as a continuous aggregate over the events, refreshed on a schedule rather than computed per request. Totals over any period SHALL be derived by summing the days it covers.
-
-#### Scenario: Totals match the events they summarise
-
-- **WHEN** events are recorded and the totals are read
-- **THEN** the totals equal what counting the events directly would produce
-
 ### Requirement: A detection recorded now is counted now
 
 The window containing the present SHALL NOT be materialised, so that it is served live and an event recorded a moment ago is included immediately. Materialisation SHALL trail the present by less than the width of one bucket.
@@ -141,10 +132,62 @@ The window containing the present SHALL NOT be materialised, so that it is serve
 
 ### Requirement: Late detections are counted within a stated window
 
-The refresh SHALL re-materialise a trailing window on a schedule, so a detection delivered after a delay is still counted. That window SHALL be the stated maximum lateness the system tolerates: a detection whose instant falls outside it is not counted until a refresh is requested for that period.
+The refresh SHALL re-materialise a trailing window on a schedule, so a detection **delivered** after a delay is still counted. That window SHALL be the stated maximum lateness the system tolerates for an arrival: a detection whose instant falls outside it is not counted until a refresh is requested for that period.
+
+This bound SHALL be stated as applying to arrivals only. A correction or a removal is reconciled when it happens, at any age, and is not subject to it. The two error directions differ and SHALL NOT be described as one: an uncounted late arrival leaves the total below the truth, whereas an unreconciled removal would leave it above.
+
+The policy's `start_offset`, `end_offset` and `schedule_interval` SHALL be asserted by a test, since they are the whole of this contract and no type or query fails when they change.
 
 #### Scenario: A detection arrives late but within the window
 
 - **WHEN** a detection whose instant falls inside the trailing refresh window is recorded, and the refresh runs
 - **THEN** the totals include it
+
+#### Scenario: The policy is registered with the stated arguments
+
+- **WHEN** the registered continuous-aggregate policy is read from the database
+- **THEN** its trailing window, its offset from the present, and its schedule match the stated bound
+
+### Requirement: A correction or removal reconciles the maintained totals
+
+When a stored event is corrected or removed, the maintained totals SHALL agree with the events by the time the response is written.
+
+Real-time aggregation only adds rows newer than the materialisation watermark; it can neither subtract a removed event nor re-classify a corrected one. For any bucket below the watermark the materialised value is the whole answer, so a mutation there SHALL trigger a refresh of the bucket it touched.
+
+The bucket containing the present SHALL NOT be refreshed by this path. Materialising it would move the watermark past detections recorded into that same hour afterwards, which neither side would then count — the guarantee that a detection recorded now is counted now takes precedence, and that bucket needs no refresh because it is served live.
+
+Whether a bucket is current SHALL be decided by the database's clock, which is the clock its boundaries were computed with.
+
+The mutation's outcome SHALL stand even if the refresh fails. The row has already changed, and reporting failure for a write that succeeded would be a worse answer than a stale total that the refresh policy may still repair.
+
+#### Scenario: A detection older than the refresh window is removed
+
+- **WHEN** a client deletes an event whose instant falls outside the policy's trailing window
+- **THEN** the totals no longer count it, without waiting for any scheduled refresh
+
+#### Scenario: A detection older than the refresh window is reclassified
+
+- **WHEN** a client corrects the vehicle type of an event whose instant falls outside the policy's trailing window
+- **THEN** the totals move one detection from the old class to the new one
+
+#### Scenario: A detection in the current hour is corrected
+
+- **WHEN** a client corrects an event recorded moments ago, and a further detection is recorded into the same hour afterwards
+- **THEN** both are counted, because the current bucket was never materialised
+
+### Requirement: Hourly totals are maintained continuously
+
+The system SHALL maintain hourly totals per plate country and per vehicle type as a continuous aggregate over the events, refreshed on a schedule rather than computed per request. Totals over any period SHALL be derived by summing the hours it covers.
+
+The bucket SHALL be an hour wide. A read of the aggregate is the materialised buckets plus a live scan of everything newer than the materialisation watermark, so the bucket width sets the size of that live scan: a daily bucket measured 82 ms against 18 ms for an hourly one at four million rows, because its live tail was a whole day of detections. Freshness is unaffected by the choice — the bucket containing the present is served live either way — which is what makes the width a cost decision rather than part of the contract.
+
+#### Scenario: Totals match the events they summarise
+
+- **WHEN** events are recorded and the totals are read
+- **THEN** the totals equal what counting the events directly would produce
+
+#### Scenario: A period selects whole hours
+
+- **WHEN** totals are read for a period of one hour, and detections exist in the hours before, inside, and after it
+- **THEN** only the detections inside that hour are counted, with an instant exactly on the opening bound counted and one exactly on the closing bound excluded
 
