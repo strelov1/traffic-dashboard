@@ -79,3 +79,45 @@ The API SHALL read its database connection from `DATABASE_URL` and SHALL fail at
 - **WHEN** the API starts without `DATABASE_URL` set
 - **THEN** it exits non-zero with a message naming `DATABASE_URL`
 
+### Requirement: The migration runner resolves the migrations the API ships with
+
+The directory the API hands to the migration runner SHALL resolve to the migration files packaged with the build, and a test SHALL assert this by applying it and checking the resulting schema.
+
+The path is computed from the calling module's own location, so it is a function of where that module sits in the tree, and the type checker cannot see it change. A path that names nothing fails loudly, because the runner reads the directory and raises `ENOENT`. A path that names an existing directory holding no migrations does not: that is a successful run over an empty set, against a schema with no tables.
+
+An assertion that the run merely resolved therefore SHALL NOT be treated as covering this requirement — only an assertion about the schema afterwards distinguishes the two.
+
+The sources and the compiled output are covered by the same assertion only for as long as they place the module at the same depth. That is a property of the build configuration rather than of this code, and it is not asserted here.
+
+#### Scenario: The exported directory names the shipped migrations
+
+- **WHEN** the constant the entrypoint passes to the migration runner is read
+- **THEN** it points at a directory containing the project's migration files, including the one that creates `traffic_events`
+
+#### Scenario: A module holding the constant is relocated
+
+- **WHEN** the module that computes the migrations directory is moved to a different depth in the source tree
+- **THEN** a test fails, rather than the API starting against a schema with no tables
+
+### Requirement: The API stops serving before it exits
+
+On `SIGTERM` or `SIGINT` the API SHALL stop accepting connections, allow requests already in flight to finish, and release its database connections before the process exits.
+
+The container runs the process as PID 1 with no init, so without a handler the default action terminates it at once: open responses are cut mid-write and every pooled connection closes as an unexpected end-of-file the database logs. Every `compose down`, restart, and container replacement does this today.
+
+#### Scenario: A signal arrives while a request is in flight
+
+- **WHEN** the process receives a termination signal while serving a request
+- **THEN** that request is answered, no new connection is accepted, and the pool is closed before exit
+
+### Requirement: An unseeded database still has usable totals
+
+The one-time backfill of the continuous aggregate SHALL NOT be conditional on the seed having run.
+
+The aggregate is created with no data, and until it is refreshed once the watermark sits at its minimum, so every row is served live and the totals look correct. When the policy first fires it moves the watermark forward, and everything older than the trailing window becomes neither materialised nor live. A database populated by any route other than the seed is therefore correct at first and quietly wrong minutes later.
+
+#### Scenario: History is loaded into an unseeded database
+
+- **WHEN** events spanning more than the trailing refresh window are recorded through the API into a database the seed did not populate, and the refresh policy then runs
+- **THEN** the totals still count them
+
