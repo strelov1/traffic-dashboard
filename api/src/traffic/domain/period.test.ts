@@ -70,10 +70,21 @@ describe('toPeriod', () => {
     )
   })
 
-  it('accepts a start equal to its end as the empty period it is', () => {
+  it('accepts a start equal to its end, which on the hour is the empty period it is', () => {
     const period = toPeriod({ from: '2026-03-04T13:00:00Z', to: '2026-03-04T13:00:00Z' })
 
     expect(period).toEqual({ from: at('2026-03-04T13:00:00Z'), to: at('2026-03-04T13:00:00Z') })
+  })
+
+  it('widens equal bounds inside an hour to that hour, like any other period', () => {
+    // Equal bounds are not an exception to the rounding rule. `[12:30, 12:30)`
+    // is empty as written and is no period the hourly totals can express, so it
+    // widens to the hour containing it and the response states that hour.
+    // Keeping it empty instead would put one period off a bucket boundary — the
+    // one thing every reader of a `Period` is entitled to assume never happens.
+    const period = toPeriod({ from: '2026-03-04T12:30:00Z', to: '2026-03-04T12:30:00Z' })
+
+    expect(period).toEqual({ from: at('2026-03-04T12:00:00Z'), to: at('2026-03-04T13:00:00Z') })
   })
 
   it('refuses a bound this runtime cannot hold, naming the field', () => {
