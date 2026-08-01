@@ -1,7 +1,18 @@
-# Aggregate baseline
+# Aggregate baseline (pre-TimescaleDB)
 
-Measured before any index beyond the primary key exists, so that the scaling
-section argues from numbers rather than from expectation. Reproduce with:
+**This measures the system as it was before TimescaleDB, and is kept as the
+"before" the storage decision argues from — see
+[`../adr/0001-timescaledb.md`](../adr/0001-timescaledb.md).** It was taken at
+commit `a60ccfa`, with only migration 0001 applied: `traffic_events` was an
+ordinary Postgres table with no hypertable, no continuous aggregate, and no index
+beyond the primary key. Compose ran `postgres:17-alpine` at that commit; it runs
+`timescale/timescaledb:2.29.0-pg17` today, so the commands below reproduce these
+numbers only against that state of the repository.
+
+What the aggregates cost on the shipping schema is in
+[`load-test.md`](load-test.md) and [`filtered-aggregate.md`](filtered-aggregate.md).
+
+Reproduce with:
 
 ```bash
 SEED_EVENTS=4000000 docker compose up -d --build
@@ -9,8 +20,9 @@ docker compose exec db psql -U derq -d derq \
   -c "explain (analyze, buffers) select plate_country, count(*) from traffic_events group by plate_country;"
 ```
 
-Environment: `postgres:17-alpine` under Docker Compose on a developer laptop.
-Timings are warm-cache, taken as the median of three consecutive runs.
+Environment: `postgres:17-alpine` under Docker Compose on a developer laptop, as
+Compose defined it at that commit. Timings are warm-cache, taken as the median of
+three consecutive runs.
 
 ## Results
 
@@ -55,3 +67,10 @@ Two consequences follow, and they are the substance of the scaling section:
 - **Writes are the real constraint.** They cannot be cached away, and the
   measurement above says nothing about them. Any claim about 500 RPS has to say
   which of the two it means.
+
+The first of those two is where this document was overtaken. Caching was the
+expected answer here; the load test that followed showed the failure was
+connection exhaustion behind a scan that grows with the table, which a TTL cache
+makes rarer without making it cheaper. The decision and the reasoning are in
+[`../adr/0001-timescaledb.md`](../adr/0001-timescaledb.md), where a cache is a
+later step above a read that is already cheap rather than a substitute for one.
