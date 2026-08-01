@@ -37,7 +37,24 @@ describe('TotalsChart', () => {
   it('states that nothing is recorded rather than drawing an empty frame', () => {
     render(<TotalsChart title="Traffic by country" state={loaded([])} onRetry={noRetry} />)
 
-    expect(screen.getByRole('status')).toHaveTextContent(/no traffic recorded/i)
+    expect(screen.getByRole('status')).toHaveTextContent(/no traffic recorded yet/i)
+  })
+
+  it('blames the filter for an empty result rather than the system', () => {
+    // Unqualified, "nothing recorded yet" is a claim about the whole database,
+    // and a reader who narrowed to a quiet week would take it as one.
+    render(
+      <TotalsChart
+        title="Traffic by country"
+        state={loaded([])}
+        onRetry={noRetry}
+        scope="Last 7 days · AE"
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /no traffic recorded for last 7 days · AE/i,
+    )
   })
 
   it('reports a failure with its reason', () => {

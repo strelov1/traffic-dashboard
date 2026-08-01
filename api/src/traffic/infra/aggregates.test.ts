@@ -101,6 +101,12 @@ describe('traffic aggregates', () => {
   // The bucket boundary is where a wrong answer is cheapest to write and hardest
   // to see: every one of these passes against an off-by-one that shifts the
   // window by an hour, unless the events sit exactly on the edge being tested.
+  //
+  // Every read below is served by real-time aggregation. This container never
+  // refreshes, so the aggregate holds no materialised bucket and `hour` is
+  // recomputed from the events on each request — one half of the union the
+  // endpoints read. The same bounds against stored buckets are in
+  // `continuous-aggregate.test.ts`, where the refresh discipline belongs.
   describe('a bounded period', () => {
     it('counts only the buckets inside it', async () => {
       await repository.insertMany([

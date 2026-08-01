@@ -29,6 +29,18 @@ afterEach(() => {
 const periodControl = () => screen.getByLabelText('Period')
 const countryControl = () => screen.getByLabelText('Country')
 
+const countryOptions = () =>
+  [...countryControl().querySelectorAll('option')].map((option) => option.value)
+
+/** Each chart reports itself in its own region, and the form has one too. */
+const panelNote = (chart: RegExp) =>
+  within(screen.getByRole('region', { name: chart })).getByRole('status')
+
+const submitOne = () => {
+  fireEvent.change(screen.getByLabelText('Plate country'), { target: { value: 'AE' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Record' }))
+}
+
 /** Records the filter each chart was asked for, in the order it was asked. */
 function recording(value: CategoryTotal[] = []) {
   const filters: Filter[] = []
@@ -293,6 +305,28 @@ describe('the country control', () => {
     expect(byCountry.filters).toEqual([{ period: 'all' }])
   })
 
+  it('keeps the options it has while a fresh read of the aggregate is in flight', async () => {
+    // Every recorded detection re-reads this aggregate, so a list derived from
+    // the in-flight state alone empties the control each time — under a reader
+    // who may be halfway through using it.
+    const loadByCountry = vi
+      .fn<() => Promise<CategoryTotal[]>>()
+      .mockResolvedValueOnce(TOTALS)
+      .mockReturnValueOnce(new Promise<CategoryTotal[]>(() => undefined))
+
+    render(<App record={stored} loadByCountry={loadByCountry} loadByVehicleType={resolving([])} />)
+    await waitFor(() => {
+      expect(countryOptions()).toEqual(['', 'AE', 'SA'])
+    })
+
+    submitOne()
+
+    await waitFor(() => {
+      expect(loadByCountry).toHaveBeenCalledTimes(2)
+    })
+    expect(countryOptions()).toEqual(['', 'AE', 'SA'])
+  })
+
   it('drops back to every country', async () => {
     window.history.replaceState(null, '', '/?country=AE')
     const byVehicleType = recording()
@@ -385,16 +419,50 @@ describe('the headline', () => {
   })
 })
 
+describe('an empty chart', () => {
+  it('says the system has recorded nothing only when nothing is narrowed', async () => {
+    render(<App record={stored} loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
+
+    await waitFor(() => {
+      expect(panelNote(/by plate country/i)).toHaveTextContent(/no traffic recorded yet/i)
+    })
+  })
+
+  it('names the period it found nothing in', async () => {
+    // Otherwise a quiet week reads as a database that has never seen a vehicle,
+    // and the reader has no way to tell the two apart from the page.
+    window.history.replaceState(null, '', '/?period=7d')
+
+    render(<App record={stored} loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
+
+    await waitFor(() => {
+      expect(panelNote(/by plate country/i)).toHaveTextContent(
+        /no traffic recorded for last 7 days/i,
+      )
+    })
+  })
+
+  it('names the country only on the chart that was narrowed by one', async () => {
+    // The by-country chart takes no country, so blaming QA for its empty state
+    // would name a filter that never touched the request behind it.
+    window.history.replaceState(null, '', '/?country=QA')
+
+    render(<App record={stored} loadByCountry={resolving([])} loadByVehicleType={resolving([])} />)
+
+    await waitFor(() => {
+      expect(panelNote(/by vehicle type/i)).toHaveTextContent(
+        /no traffic recorded for all time · QA/i,
+      )
+    })
+    expect(panelNote(/by plate country/i)).toHaveTextContent(/no traffic recorded yet/i)
+  })
+})
+
 describe('recording a detection', () => {
   // Scoped to the form's own region: an empty chart reports itself with a
   // status role too, and the page has two of those.
   const outcome = () =>
     within(screen.getByRole('region', { name: /record a detection/i })).getByRole('status')
-
-  const submitOne = () => {
-    fireEvent.change(screen.getByLabelText('Plate country'), { target: { value: 'AE' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Record' }))
-  }
 
   it('re-reads both aggregates once the API has taken it', async () => {
     const byCountry = recording()
