@@ -219,6 +219,28 @@ describe('the period a response covers', () => {
       period: { from: '2026-03-04T13:00:00.000Z', to: '2026-03-04T13:00:00.000Z' },
     })
   })
+
+  // The case above is the only one where equal bounds stay where they were
+  // written, and it reads as the general rule until this one sits beside it.
+  // Off the hour the same request is a whole hour of traffic under a period the
+  // client never sent — which is exactly what `period` in the envelope is for.
+  it('widens equal bounds inside an hour, and states the hour rather than the bounds sent', async () => {
+    const { server, reads } = serve({ byCountry: [{ plateCountry: 'AE', total: 7 }] })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/api/traffic/by-country?from=2026-03-04T12:30:00Z&to=2026-03-04T12:30:00Z',
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual({
+      data: [{ plateCountry: 'AE', total: 7 }],
+      period: { from: '2026-03-04T12:00:00.000Z', to: '2026-03-04T13:00:00.000Z' },
+    })
+    expect(reads.byCountry).toEqual([
+      { period: { from: new Date('2026-03-04T12:00:00Z'), to: new Date('2026-03-04T13:00:00Z') } },
+    ])
+  })
 })
 
 describe('narrowing the vehicle-type aggregate to a country', () => {
