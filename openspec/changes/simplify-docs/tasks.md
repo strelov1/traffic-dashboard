@@ -19,7 +19,7 @@
 
 ## 4. The drift a review found
 
-- [x] 4.1 `openspec/specs/traffic-data/spec.md`: rewrite the daily-totals requirement as hourly, matching migration 0004 and the tests that already pin the bucket boundaries. Leave the ARCHIVED changes alone — they carry decisions later measured to be wrong, on purpose.
+- [x] 4.1 This change's `specs/traffic-data/spec.md`: rewrite the daily-totals requirement as hourly, matching migration 0004 and the tests that already pin the bucket boundaries. The delta carries the correction and `openspec archive` applies it to the main spec; correcting the main spec here as well leaves the RENAMED with no source to find. Leave the ARCHIVED changes alone — they carry decisions later measured to be wrong, on purpose.
 - [x] 4.2 `docs/performance/aggregate-baseline.md`: label it the pre-TimescaleDB baseline and name the state it was taken at — `postgres:17-alpine` with only migration 0001 applied, at the commit that added the table.
 - [x] 4.3 `AGENTS.md`: fill Stack, Layout, Commands and Conventions from what exists, including the dependency rule production code must not violate.
 
@@ -33,5 +33,5 @@
 
 ## 6. Verify
 
-- [x] 6.1 `openspec validate simplify-docs --strict`.
+- [x] 6.1 `openspec validate simplify-docs --strict`, then `openspec archive simplify-docs` against a copy of `openspec/` outside the tree. A delta can validate and still abort when it is applied, which is the only moment that matters and the last one at which it is cheap to fix.
 - [x] 6.2 `pnpm verify` — lint, typecheck, whole suite green. No source file changed, so a failure here means something was touched that should not have been.

@@ -3,9 +3,12 @@ import { z } from 'zod'
 
 import { startMigratedPostgres, type MigratedPostgres } from '../../testing/postgres.js'
 import { eventsAt, trafficEvents } from '../../testing/traffic-events.js'
+import type { TrafficEvent } from '../domain/detection.js'
 import { UNBOUNDED } from '../domain/period.js'
 import type { TrafficRepository } from '../ports.js'
 import { createTrafficRepository } from './postgres-repository.js'
+
+const hour = (iso: string) => new Date(iso)
 
 // Refreshes the way the policy does: a whole bucket back, so the current bucket
 // is never materialised. A refresh window is expanded to bucket boundaries, so
@@ -203,5 +206,75 @@ describe('hourly totals as a continuous aggregate', () => {
     await expect(repository.totalsByCountry(UNBOUNDED)).resolves.toEqual([
       { plateCountry: 'AE', total: 2 },
     ])
+  })
+
+  // The period predicate, read against buckets the aggregate has stored.
+  //
+  // A read is the union of the materialised buckets and a live scan of the
+  // tail, and `aggregates.test.ts` exercises only the second half: its container
+  // has never materialised anything, so `hour` there is recomputed from the
+  // events on every read. The half below the watermark — the one the endpoints
+  // are served from for all but the current hour — was covered by nothing.
+  describe('a bounded period over materialised buckets', () => {
+    /**
+     * Materialises the buckets these events fall into, then removes the events
+     * with SQL rather than through the repository, so no reconcile refresh runs.
+     * Whatever a read returns afterwards can only have come from the
+     * materialised side.
+     *
+     * That deletion is what keeps these tests from quietly becoming more
+     * live-tail reads: without it, a refresh that stopped materialising would
+     * leave every assertion below still passing, served by the events.
+     */
+    async function materialise(events: TrafficEvent[]): Promise<void> {
+      await repository.insertMany(events)
+      await postgres.database.query(z.unknown(), REFRESH)
+      await postgres.database.query(z.unknown(), 'delete from traffic_events')
+    }
+
+    it('counts a bucket opening exactly on the instant the period starts', async () => {
+      await materialise(eventsAt(hour('2026-03-04T13:00:00Z'), ['AE', 'car', 2]))
+
+      await expect(
+        repository.totalsByCountry({
+          from: hour('2026-03-04T13:00:00Z'),
+          to: hour('2026-03-04T14:00:00Z'),
+        }),
+      ).resolves.toEqual([{ plateCountry: 'AE', total: 2 }])
+    })
+
+    it('excludes a bucket opening exactly on the instant the period ends', async () => {
+      await materialise([
+        ...eventsAt(hour('2026-03-04T12:00:00Z'), ['AE', 'car', 2]),
+        ...eventsAt(hour('2026-03-04T13:00:00Z'), ['SA', 'car', 5]),
+      ])
+
+      // Both are materialised and both are AE-or-SA, so the answer names which
+      // bound each fell on: the 12:00 bucket counted, the 13:00 one belonging to
+      // the period that starts where this one ends.
+      await expect(
+        repository.totalsByCountry({
+          from: hour('2026-03-04T12:00:00Z'),
+          to: hour('2026-03-04T13:00:00Z'),
+        }),
+      ).resolves.toEqual([{ plateCountry: 'AE', total: 2 }])
+    })
+
+    it('narrows a materialised period to one country', async () => {
+      await materialise([
+        ...eventsAt(hour('2026-03-04T13:00:00Z'), ['AE', 'car', 3], ['AE', 'bus', 1]),
+        ...eventsAt(hour('2026-03-04T13:00:00Z'), ['SA', 'truck', 9]),
+      ])
+
+      await expect(
+        repository.totalsByVehicleType(
+          { from: hour('2026-03-04T13:00:00Z'), to: hour('2026-03-04T14:00:00Z') },
+          'AE',
+        ),
+      ).resolves.toEqual([
+        { vehicleType: 'car', total: 3 },
+        { vehicleType: 'bus', total: 1 },
+      ])
+    })
   })
 })

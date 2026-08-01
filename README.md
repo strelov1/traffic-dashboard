@@ -56,7 +56,7 @@ pnpm install                     # without Docker:
 pnpm --filter @derq/api dev      # needs DATABASE_URL
 pnpm --filter @derq/web dev
 
-pnpm verify                      # lint, typecheck, tests — 298: 192 api, 106 web
+pnpm verify                      # lint, typecheck, tests — 306: 195 api, 111 web
 ```
 
 Integration suites start a throwaway TimescaleDB with Testcontainers on the image
