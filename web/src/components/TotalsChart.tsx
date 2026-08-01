@@ -15,20 +15,35 @@ type Props = {
   title: string
   state: AsyncState<CategoryTotal[]>
   onRetry: () => void
+  /**
+   * What this chart's own request was narrowed to, absent when it was not.
+   *
+   * An empty aggregate under no filter is the system reporting that nothing has
+   * ever been recorded; under one it reports only that nothing matches. A panel
+   * that cannot tell them apart states the first for both, which is a claim
+   * about the whole database made on the strength of one filtered read.
+   *
+   * Optional *and* `| undefined`: absent and absent-on-purpose mean the same
+   * thing here, and `exactOptionalPropertyTypes` otherwise refuses the caller
+   * that computed a scope and found there was none.
+   */
+  scope?: string | undefined
 }
 
 const BAR_HEIGHT = 34
 
-export function TotalsChart({ title, state, onRetry }: Props) {
+export function TotalsChart(props: Props) {
+  const { title } = props
+
   return (
     <section className="panel" aria-labelledby={headingId(title)}>
       <h2 id={headingId(title)}>{title}</h2>
-      {renderBody(title, state, onRetry)}
+      {renderBody(props)}
     </section>
   )
 }
 
-function renderBody(title: string, state: AsyncState<CategoryTotal[]>, onRetry: () => void) {
+function renderBody({ title, state, onRetry, scope }: Props) {
   if (state.status === 'loading') {
     return (
       <p className="panel__note" role="status">
@@ -61,7 +76,7 @@ function renderBody(title: string, state: AsyncState<CategoryTotal[]>, onRetry: 
   if (state.value.length === 0) {
     return (
       <p className="panel__note" role="status">
-        No traffic recorded yet.
+        {scope === undefined ? 'No traffic recorded yet.' : `No traffic recorded for ${scope}.`}
       </p>
     )
   }

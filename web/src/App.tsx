@@ -1,8 +1,16 @@
+import { useRef } from 'react'
+
 import type { CategoryTotal, Detection } from './api/traffic'
 import { DetectionForm } from './components/DetectionForm'
 import { FilterControls } from './components/FilterControls'
 import { TotalsChart } from './components/TotalsChart'
-import { countryChartKey, PERIOD_LABELS, vehicleTypeChartKey, type Filter } from './filters'
+import {
+  countryChartKey,
+  DEFAULT_FILTER,
+  PERIOD_LABELS,
+  vehicleTypeChartKey,
+  type Filter,
+} from './filters'
 import { useAsync, type AsyncState } from './useAsync'
 import { useUrlFilter } from './useUrlFilter'
 
@@ -23,6 +31,17 @@ export function App({ loadByCountry, loadByVehicleType, record }: Props) {
   const [byVehicleType, reloadByVehicleType] = useAsync(vehicleTypeChartKey(filter), () =>
     loadByVehicleType(filter),
   )
+
+  // The options a reader is choosing from must outlast the request that
+  // produced them. Derived from the in-flight state alone, the list empties on
+  // every period change and after every recorded detection — both of which
+  // re-read this aggregate — leaving the control blank under whoever is using
+  // it. Held across the gap, the worst case is options one read out of date.
+  const reported = useRef<string[]>([])
+
+  if (byCountry.status === 'loaded') {
+    reported.current = byCountry.value.map((entry) => entry.label)
+  }
 
   return (
     <div className="page">
@@ -51,15 +70,25 @@ export function App({ loadByCountry, loadByVehicleType, record }: Props) {
         </p>
         <FilterControls
           filter={filter}
-          countries={countriesOf(byCountry, filter)}
+          countries={countriesOf(reported.current, filter)}
           onChange={select}
         />
       </header>
 
       <main>
         <div className="grid">
-          <TotalsChart title="By plate country" state={byCountry} onRetry={reloadByCountry} />
-          <TotalsChart title="By vehicle type" state={byVehicleType} onRetry={reloadByVehicleType} />
+          <TotalsChart
+            title="By plate country"
+            state={byCountry}
+            onRetry={reloadByCountry}
+            scope={narrowedScope({ period: filter.period })}
+          />
+          <TotalsChart
+            title="By vehicle type"
+            state={byVehicleType}
+            onRetry={reloadByVehicleType}
+            scope={narrowedScope(filter)}
+          />
         </div>
 
         {/* Below the grid rather than in it: the grid is auto-fit, so a third
@@ -104,17 +133,28 @@ function headline(state: AsyncState<CategoryTotal[]>, country: string | undefine
 }
 
 /**
- * The countries the current period actually reported, plus whichever one is
+ * The countries the last completed read reported, plus whichever one is
  * selected. A country that arrived in a link and has no traffic in this period
  * still has to appear, or the control would read "All countries" while the
  * chart beside it showed one — the exact disagreement the URL exists to avoid.
  */
-function countriesOf(state: AsyncState<CategoryTotal[]>, filter: Filter): string[] {
-  const reported = state.status === 'loaded' ? state.value.map((entry) => entry.label) : []
-
+function countriesOf(reported: string[], filter: Filter): string[] {
   return filter.country === undefined || reported.includes(filter.country)
     ? reported
     : [...reported, filter.country]
+}
+
+/**
+ * The filter as a phrase, and nothing at all when it narrows nothing.
+ *
+ * Each chart is given the scope of its own request rather than of the page: the
+ * by-country aggregate takes no country, so naming one as the reason it came
+ * back empty would blame a filter that never reached it.
+ */
+function narrowedScope(filter: Filter): string | undefined {
+  return filter.period === DEFAULT_FILTER.period && filter.country === undefined
+    ? undefined
+    : scopeOf(filter)
 }
 
 function scopeOf(filter: Filter): string {

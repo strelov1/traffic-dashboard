@@ -189,7 +189,7 @@ describe('useAsync', () => {
       expect(result.current[0]).toEqual({ status: 'loaded', value: 'last week' })
     })
 
-    it('reports loading again while the run a key change started is in flight', () => {
+    it('reports loading again while the run a key change started is in flight', async () => {
       const first = deferred<string>()
       const second = deferred<string>()
       const load = loaderFor(first.promise, second.promise)
@@ -198,9 +198,19 @@ describe('useAsync', () => {
         initialProps: { key: 'all' },
       })
 
+      // Awaited, not merely resolved. `resolve` queues a microtask, so a
+      // synchronous assertion after it reads the state the hook mounted in —
+      // which is `loading` already, and would hold whether or not a key change
+      // resets anything.
       first.resolve('all time')
+      await waitFor(() => {
+        expect(result.current[0]).toEqual({ status: 'loaded', value: 'all time' })
+      })
+
       rerender({ key: '7d' })
 
+      // The bars the reader is looking at answer the old key. Leaving them up
+      // under the new heading would be a chart lying about what it counts.
       expect(result.current[0]).toEqual({ status: 'loading' })
     })
   })
